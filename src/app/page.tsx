@@ -15,7 +15,7 @@ import {
   Users,
 } from "lucide-react";
 import { type FormEvent, type ReactNode, useMemo, useState } from "react";
-import type { AnalysisMode, ScanReport, TopFinding } from "@/app/types";
+import type { AnalysisMode, ReportAudience, ScanReport, TopFinding } from "@/app/types";
 
 const sampleInputs = {
   repoUrl: "github.com/owner/repo",
@@ -27,6 +27,7 @@ const sampleInputs = {
 const sampleReport: ScanReport = {
   analysisMode: "rule-based",
   analysisNote: "Sample report for demo reliability. No external request was made.",
+  reportAudience: "founder",
   overallScore: 78,
   productionScore: 76,
   securityScore: 72,
@@ -85,6 +86,23 @@ const sampleReport: ScanReport = {
       "Who feels this launch-readiness pain most urgently?",
       "What does the user currently do before showing a prototype?",
       "What evidence proves this catches issues they would otherwise miss?",
+    ],
+  },
+  launchPlan: {
+    beforeSharingWithUsers: [
+      "Run the primary user workflow on the live URL in a fresh browser session.",
+      "Put the clearest user pain and outcome on the first screen.",
+      "Add a live demo link or screenshot so a first-time visitor understands the product quickly.",
+    ],
+    beforeShowingMentorsInvestors: [
+      "Prepare a concise answer for the main technical risk and main market risk.",
+      "Make sure the README explains the problem, setup, demo path, and known limitations.",
+      "Explain why this user segment cares now and what they do today instead.",
+    ],
+    beforeProductionLaunch: [
+      "Add an .env.example so another developer can run the project safely.",
+      "Document how user input is validated before accepting user-submitted data.",
+      "Add missing security headers before production launch.",
     ],
   },
   checks: {
@@ -158,14 +176,28 @@ const severityStyles: Record<TopFinding["severity"], string> = {
 
 const modeLabels: Record<AnalysisMode, string> = {
   "rule-based": "Rule-based demo mode",
-  "ai-assisted": "AI-assisted analysis",
+  "ai-assisted": "AI-assisted synthesis",
   fallback: "Fallback mode",
 };
+
+const modeDescriptions: Record<AnalysisMode, string> = {
+  "rule-based": "No API key required. The report is generated from deterministic repo and deployment checks.",
+  "ai-assisted": "Deterministic scan evidence was synthesized with Gemini into this founder-ready report.",
+  fallback: "AI synthesis was unavailable, so LaunchGuard returned the rule-based report.",
+};
+
+const audienceOptions: Array<{ value: ReportAudience; label: string }> = [
+  { value: "founder", label: "Founder" },
+  { value: "investor-mentor", label: "Investor / Mentor" },
+  { value: "technical-reviewer", label: "Technical Reviewer" },
+  { value: "accelerator", label: "Accelerator Program" },
+];
 
 export default function Home() {
   const [repoUrl, setRepoUrl] = useState("");
   const [liveUrl, setLiveUrl] = useState("");
   const [description, setDescription] = useState("");
+  const [reportAudience, setReportAudience] = useState<ReportAudience>("founder");
   const [report, setReport] = useState<ScanReport | null>(null);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -174,6 +206,7 @@ export default function Home() {
   const reportSummaryText = useMemo(() => (report ? buildCopyText(report, "summary") : ""), [report]);
   const topFindingsText = useMemo(() => (report ? buildCopyText(report, "findings") : ""), [report]);
   const nextStepsText = useMemo(() => (report ? buildCopyText(report, "steps") : ""), [report]);
+  const founderBriefText = useMemo(() => (report ? buildFounderBrief(report) : ""), [report]);
 
   async function runScan(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -185,7 +218,7 @@ export default function Home() {
       const response = await fetch("/api/scan", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ repoUrl, liveUrl, description }),
+        body: JSON.stringify({ repoUrl, liveUrl, description, reportAudience }),
       });
       const data = (await response.json()) as ScanReport | { error?: string };
 
@@ -345,6 +378,21 @@ export default function Home() {
                 />
               </Field>
 
+              <Field label="Report audience" htmlFor="report-audience">
+                <select
+                  id="report-audience"
+                  value={reportAudience}
+                  onChange={(event) => setReportAudience(event.target.value as ReportAudience)}
+                  className="h-12 w-full rounded-lg border border-black/15 bg-[#fbfaf7] px-4 text-base outline-none transition focus:border-[#0f766e] focus:bg-white focus:ring-4 focus:ring-[#0f766e]/10"
+                >
+                  {audienceOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+
               <p className="text-sm leading-6 text-[#6e665c]">
                 Works with public GitHub repos. No private repo access, auth, database, or required API key.
               </p>
@@ -427,6 +475,21 @@ export default function Home() {
         </div>
       </section>
 
+      <section className="border-b border-black/10 bg-[#f6f3ee]">
+        <div className="mx-auto grid w-full max-w-7xl gap-5 px-5 py-10 sm:px-8 lg:grid-cols-[0.8fr_1.2fr] lg:px-10">
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-[0.12em] text-[#0f766e]">
+              Why not just ChatGPT?
+            </p>
+            <h2 className="mt-2 text-3xl font-semibold tracking-normal">Evidence first, synthesis second</h2>
+          </div>
+          <p className="text-base leading-7 text-[#5c564d]">
+            LaunchGuard is not a generic prompt. It first collects structured evidence from the public repo and live
+            deployment, then turns those deterministic signals into a diligence report for the audience you choose.
+          </p>
+        </div>
+      </section>
+
       {report ? (
         <section className="mx-auto w-full max-w-7xl px-5 py-10 sm:px-8 lg:px-10 lg:py-14">
           <div className="grid gap-5 lg:grid-cols-[0.95fr_1.05fr]">
@@ -447,7 +510,8 @@ export default function Home() {
                 </div>
               </div>
               <p className="mt-5 text-base leading-7 text-[#5c564d]">{report.summary}</p>
-              {report.analysisNote ? <p className="mt-3 text-sm leading-6 text-[#6e665c]">{report.analysisNote}</p> : null}
+              <p className="mt-3 text-sm leading-6 text-[#6e665c]">{modeDescriptions[report.analysisMode]}</p>
+              {report.analysisNote ? <p className="mt-2 text-sm leading-6 text-[#6e665c]">{report.analysisNote}</p> : null}
               <div className="mt-6 flex flex-wrap gap-3">
                 <CopyButton
                   label="Copy report summary"
@@ -463,6 +527,11 @@ export default function Home() {
                   label="Copy next steps"
                   copied={copiedLabel === "steps"}
                   onClick={() => copyText(nextStepsText, "steps")}
+                />
+                <CopyButton
+                  label="Copy Founder Brief"
+                  copied={copiedLabel === "founder-brief"}
+                  onClick={() => copyText(founderBriefText, "founder-brief")}
                 />
                 <button
                   type="button"
@@ -521,10 +590,49 @@ export default function Home() {
               <AdviceCard title="Demo readiness advice" text={report.demoReadinessAdvice} />
             </div>
           </div>
+
+          <LaunchPlan plan={report.launchPlan} />
         </section>
       ) : null}
     </main>
   );
+}
+
+function buildFounderBrief(report: ScanReport) {
+  const memo = report.founderReadinessMemo;
+  const topFindings = report.topFindings
+    .slice(0, 3)
+    .map((finding) => `- [${finding.severity.toUpperCase()}] ${finding.title}: ${finding.recommendation}`)
+    .join("\n");
+  const nextActions = report.nextSteps
+    .slice(0, 3)
+    .map((step) => `- ${step}`)
+    .join("\n");
+  const questions = memo.mentorInvestorQuestions.map((question) => `- ${question}`).join("\n");
+
+  return [
+    `LaunchGuard Founder Brief: ${report.checks.repo.owner}/${report.checks.repo.name}`,
+    `Audience: ${audienceOptions.find((option) => option.value === report.reportAudience)?.label ?? "Founder"}`,
+    `Overall score: ${report.overallScore}/100`,
+    `Production: ${report.productionScore}/100`,
+    `Security: ${report.securityScore}/100`,
+    `Demo clarity: ${report.demoClarityScore}/100`,
+    `Market readiness: ${report.businessFeasibilityScore}/100`,
+    "",
+    `Target user: ${memo.likelyTargetUser}`,
+    `Core user pain: ${memo.coreUserPain}`,
+    `Main technical risk: ${memo.mainTechnicalRisk}`,
+    `Main market risk: ${memo.mainMarketRisk}`,
+    "",
+    "Top 3 launch blockers:",
+    topFindings || "- No major blockers generated from the targeted checks.",
+    "",
+    "Top 3 next actions:",
+    nextActions,
+    "",
+    "Mentor / investor questions:",
+    questions,
+  ].join("\n");
 }
 
 function buildCopyText(report: ScanReport, mode: "summary" | "findings" | "steps") {
@@ -660,6 +768,35 @@ function FounderMemo({ memo }: { memo: ScanReport["founderReadinessMemo"] }) {
         </div>
       </div>
     </section>
+  );
+}
+
+function LaunchPlan({ plan }: { plan: ScanReport["launchPlan"] }) {
+  return (
+    <section className="mt-5 rounded-2xl border border-black/10 bg-white p-6 shadow-sm">
+      <h2 className="text-2xl font-semibold tracking-normal">Launch Plan</h2>
+      <div className="mt-5 grid gap-4 lg:grid-cols-3">
+        <PlanGroup title="Before sharing with users" items={plan.beforeSharingWithUsers} />
+        <PlanGroup title="Before showing mentors/investors" items={plan.beforeShowingMentorsInvestors} />
+        <PlanGroup title="Before production launch" items={plan.beforeProductionLaunch} />
+      </div>
+    </section>
+  );
+}
+
+function PlanGroup({ title, items }: { title: string; items: string[] }) {
+  return (
+    <div className="rounded-xl bg-[#fbfaf7] p-4">
+      <h3 className="text-sm font-semibold text-[#3d3933]">{title}</h3>
+      <div className="mt-3 space-y-2">
+        {items.map((item) => (
+          <div key={item} className="flex gap-2 text-sm leading-6 text-[#5c564d]">
+            <CheckCircle2 className="mt-1 shrink-0 text-[#0f766e]" size={15} aria-hidden="true" />
+            <p>{item}</p>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 

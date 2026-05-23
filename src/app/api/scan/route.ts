@@ -1,9 +1,10 @@
-import type { ScanChecks, ScanReport, SecretPattern, TopFinding } from "@/app/types";
+import type { ReportAudience, ScanChecks, ScanReport, SecretPattern, TopFinding } from "@/app/types";
 
 type ScanRequest = {
   repoUrl?: string;
   liveUrl?: string;
   description?: string;
+  reportAudience?: ReportAudience;
 };
 
 type RepoRef = {
@@ -96,6 +97,7 @@ export async function POST(request: Request) {
   }
 
   const description = body.description?.trim() ?? "";
+  const reportAudience = parseReportAudience(body.reportAudience);
   const repoParseResult = parseGitHubRepoUrl(body.repoUrl ?? "");
   const liveParseResult = parseHttpUrl(body.liveUrl ?? "");
 
@@ -107,13 +109,18 @@ export async function POST(request: Request) {
     return Response.json({ error: liveParseResult.error }, { status: 400 });
   }
 
-  const deterministicReport = await buildRuleBasedReport(repoParseResult.repo, liveParseResult.url, description);
-  const finalReport = await maybeSynthesizeWithGemini(deterministicReport, description);
+  const deterministicReport = await buildRuleBasedReport(repoParseResult.repo, liveParseResult.url, description, reportAudience);
+  const finalReport = await maybeSynthesizeWithGemini(deterministicReport, description, reportAudience);
 
   return Response.json(finalReport);
 }
 
-async function buildRuleBasedReport(repoRef: RepoRef, liveUrl: string, description: string): Promise<ScanReport> {
+async function buildRuleBasedReport(
+  repoRef: RepoRef,
+  liveUrl: string,
+  description: string,
+  reportAudience: ReportAudience,
+): Promise<ScanReport> {
   const repoMeta = await fetchRepoMeta(repoRef);
   const branches = unique([repoMeta.defaultBranch, "main", "master"].filter(Boolean) as string[]);
   const defaultBranch = repoMeta.defaultBranch ?? "main";
@@ -235,15 +242,22 @@ async function buildRuleBasedReport(repoRef: RepoRef, liveUrl: string, descripti
   return {
     analysisMode: "rule-based",
     analysisNote: "Generated with deterministic checks. Optional AI synthesis can be enabled later with GEMINI_API_KEY.",
+    reportAudience,
     ...scores,
-    founderReadinessMemo: buildFounderReadinessMemo(checks, topFindings, description),
-    summary: buildSummary(checks, scores, topFindings),
+    founderReadinessMemo: buildFounderReadinessMemo(checks, topFindings, description, reportAudience),
+    launchPlan: buildLaunchPlan(checks, topFindings),
+    summary: buildSummary(checks, scores, topFindings, reportAudience),
     topFindings,
-    nextSteps: buildNextSteps(checks, topFindings),
+    nextSteps: buildNextSteps(checks, topFindings, reportAudience),
     positioningFeedback: buildPositioningFeedback(checks, description),
-    demoReadinessAdvice: buildDemoReadinessAdvice(checks),
+    demoReadinessAdvice: buildDemoReadinessAdvice(checks, reportAudience),
     checks,
   };
+}
+
+function parseReportAudience(value: unknown): ReportAudience {
+  const allowed: ReportAudience[] = ["founder", "investor-mentor", "technical-reviewer", "accelerator"];
+  return allowed.includes(value as ReportAudience) ? (value as ReportAudience) : "founder";
 }
 
 function parseGitHubRepoUrl(input: string): { ok: true; repo: RepoRef } | { ok: false; error: string } {
@@ -784,8 +798,10 @@ function buildSummary(
   checks: ScanChecks,
   scores: Pick<ScanReport, "overallScore" | "productionScore" | "securityScore" | "demoClarityScore" | "businessFeasibilityScore">,
   findings: TopFinding[],
+  reportAudience: ReportAudience,
 ): string {
   const repoName = `${checks.repo.owner}/${checks.repo.name}`;
+  const audienceIntro = getAudienceIntro(reportAudience);
   const liveStatus = checks.liveUrl.ok
     ? `The live demo responded with HTTP ${checks.liveUrl.status}.`
     : checks.liveUrl.status
@@ -795,16 +811,16 @@ function buildSummary(
     ["production readiness", scores.productionScore],
     ["security", scores.securityScore],
     ["demo clarity", scores.demoClarityScore],
-    ["business feasibility", scores.businessFeasibilityScore],
+    ["market readiness", scores.businessFeasibilityScore],
   ] as const;
   const strongestArea = scoreEntries.reduce((best, current) => (current[1] > best[1] ? current : best));
   const biggestRisk = findings[0]?.title ?? "No major launch blocker was generated from the targeted checks";
   const nextFix = findings[0]?.recommendation ?? "Keep the README, live demo, and setup instructions current.";
 
-  return `${repoName} scored ${scores.overallScore}/100 for launch readiness. ${liveStatus} Strongest area: ${strongestArea[0]} (${strongestArea[1]}/100). Biggest risk from the targeted scan: ${biggestRisk}. Recommended next fix: ${nextFix}`;
+  return `${audienceIntro} ${repoName} scored ${scores.overallScore}/100 for pre-launch diligence. ${liveStatus} Strongest area: ${strongestArea[0]} (${strongestArea[1]}/100). Biggest risk from the targeted scan: ${biggestRisk}. Recommended next fix: ${nextFix}`;
 }
 
-function buildNextSteps(checks: ScanChecks, findings: TopFinding[]): string[] {
+function buildNextSteps(checks: ScanChecks, findings: TopFinding[], reportAudience: ReportAudience): string[] {
   const steps = findings.slice(0, 5).map((finding) => finding.recommendation);
 
   if (!checks.signals.readmeHasSetupInstructions) {
@@ -821,6 +837,18 @@ function buildNextSteps(checks: ScanChecks, findings: TopFinding[]): string[] {
     steps.push("Make the live deployment public and verify the primary URL returns HTTP 200.");
   }
 
+  if (reportAudience === "investor-mentor") {
+    steps.push("Prepare a short explanation of the biggest technical risk and how you will reduce it before launch.");
+  }
+
+  if (reportAudience === "technical-reviewer") {
+    steps.push("Document which risks were not covered by this targeted scan so reviewers know the audit boundary.");
+  }
+
+  if (reportAudience === "accelerator") {
+    steps.push("Turn the highest-priority findings into a cohort-ready checklist for the next review session.");
+  }
+
   return unique(steps).slice(0, 6);
 }
 
@@ -828,6 +856,7 @@ function buildFounderReadinessMemo(
   checks: ScanChecks,
   findings: TopFinding[],
   description: string,
+  reportAudience: ReportAudience,
 ): ScanReport["founderReadinessMemo"] {
   const quality = checks.signals.descriptionQuality;
   const repoName = `${checks.repo.owner}/${checks.repo.name}`;
@@ -863,7 +892,54 @@ function buildFounderReadinessMemo(
     mainMarketRisk: mainMarketFinding
       ? `${mainMarketFinding.title}: ${mainMarketFinding.recommendation}`
       : "Market readiness looks directionally clear from the submitted description; validate that users care enough to try it now.",
-    mentorInvestorQuestions: buildMentorInvestorQuestions(checks),
+    mentorInvestorQuestions: buildMentorInvestorQuestions(checks, reportAudience),
+  };
+}
+
+function buildLaunchPlan(checks: ScanChecks, findings: TopFinding[]): ScanReport["launchPlan"] {
+  const blockerRecommendations = findings.slice(0, 4).map((finding) => finding.recommendation);
+  const beforeSharingWithUsers = unique([
+    checks.liveUrl.ok
+      ? "Run the primary user workflow on the live URL in a fresh browser session."
+      : "Make the live demo reachable before sending it to users.",
+    checks.signals.productDescriptionClear
+      ? "Put the clearest user pain and outcome on the first screen of the product or README."
+      : "Clarify the target user and pain point in the README and landing page.",
+    checks.signals.readmeQuality.hasDemoLink
+      ? ""
+      : "Add a live demo link or screenshot so a first-time visitor understands the product quickly.",
+    blockerRecommendations[0] ?? "",
+  ]);
+  const beforeShowingMentorsInvestors = unique([
+    "Prepare a concise answer for the main technical risk and main market risk in the memo.",
+    checks.signals.readmeExists
+      ? "Make sure the README explains the problem, setup, demo path, and known limitations."
+      : "Add a README that explains the problem, setup, demo path, and known limitations.",
+    checks.signals.productDescriptionClear
+      ? "Explain why this user segment cares now and what they do today instead."
+      : "Rewrite the positioning so mentors can identify the user, pain, and value proposition in one sentence.",
+    blockerRecommendations[1] ?? "",
+  ]);
+  const beforeProductionLaunch = unique([
+    checks.signals.envExampleExists
+      ? "Verify committed env examples contain placeholders only."
+      : "Add an .env.example so another developer can run the project safely.",
+    checks.signals.apiRoutesDetected && !checks.signals.validationLibraryDetected
+      ? "Add input validation to API routes before accepting user-submitted data."
+      : "Document how user input is validated or why the app does not accept sensitive input.",
+    Object.values(checks.liveUrl.securityHeaders).every(Boolean)
+      ? "Re-check security headers after deployment changes."
+      : "Add missing security headers before production launch.",
+    checks.signals.possibleSecretPatterns.length > 0
+      ? "Manually verify possible secret-like patterns and rotate any real credentials."
+      : "",
+    blockerRecommendations[2] ?? "",
+  ]);
+
+  return {
+    beforeSharingWithUsers: beforeSharingWithUsers.slice(0, 4),
+    beforeShowingMentorsInvestors: beforeShowingMentorsInvestors.slice(0, 4),
+    beforeProductionLaunch: beforeProductionLaunch.slice(0, 4),
   };
 }
 
@@ -905,12 +981,24 @@ function buildCredibilitySignals(checks: ScanChecks): string {
     : "Few credibility signals were detected in the targeted scan. Add clearer docs, demo evidence, and setup details.";
 }
 
-function buildMentorInvestorQuestions(checks: ScanChecks): string[] {
+function buildMentorInvestorQuestions(checks: ScanChecks, reportAudience: ReportAudience): string[] {
   const questions = [
     "Who feels this problem most urgently, and what are they doing today instead?",
     "What is the first workflow a user should complete in the live demo?",
     "What evidence shows this is ready to share beyond a local prototype?",
   ];
+
+  if (reportAudience === "technical-reviewer") {
+    questions.push("Which code paths handle user input, auth, data writes, or third-party integrations?");
+  }
+
+  if (reportAudience === "accelerator") {
+    questions.push("Which findings should be fixed before the next cohort demo or mentor review?");
+  }
+
+  if (reportAudience === "investor-mentor") {
+    questions.push("What would make this credible as a repeatable pre-launch workflow rather than a one-off tool?");
+  }
 
   if (!checks.signals.productDescriptionClear) {
     questions.push("Can the founder explain the user, pain, and outcome in one sentence?");
@@ -951,7 +1039,7 @@ function buildPositioningFeedback(checks: ScanChecks, description: string): stri
   return `Market readiness needs sharper language around ${gaps.join(", ") || "specificity"}. A stronger launch sentence would name who feels the pain, when they feel it, why they care, and why this product is credible enough to try.`;
 }
 
-function buildDemoReadinessAdvice(checks: ScanChecks): string {
+function buildDemoReadinessAdvice(checks: ScanChecks, reportAudience: ReportAudience): string {
   if (!checks.liveUrl.ok) {
     return "Fix live deployment reachability before recording. In the demo, be honest that repo checks can still run, but the public product experience must load reliably before launch.";
   }
@@ -962,10 +1050,39 @@ function buildDemoReadinessAdvice(checks: ScanChecks): string {
       ? `All ${SECURITY_HEADERS.length} checked security headers were detected on the live response.`
       : `Mention that header checks are best-effort and add the missing headers where appropriate (${headerCount}/${SECURITY_HEADERS.length} detected).`;
 
-  return `For a screen recording, start on the first screen a real user would see, complete one primary workflow, then show the LaunchGuard report as the pre-launch checklist. Do not over-explain internals; focus on the blocker, the evidence, and the next fix. ${headerAdvice}`;
+  const audienceAdvice =
+    reportAudience === "technical-reviewer"
+      ? "For a technical review, call out what was checked, what was not checked, and which risks need manual follow-up."
+      : reportAudience === "investor-mentor"
+        ? "For mentors or investors, lead with the user pain, then show how the report turns vague launch risk into concrete next actions."
+        : reportAudience === "accelerator"
+          ? "For accelerator reviews, use the launch plan as a shared checklist across projects."
+          : "For a founder demo, start on the first screen a real user would see and complete one primary workflow.";
+
+  return `${audienceAdvice} Then show the LaunchGuard report as the pre-launch checklist. Do not over-explain internals; focus on the blocker, the evidence, and the next fix. ${headerAdvice}`;
 }
 
-async function maybeSynthesizeWithGemini(report: ScanReport, description: string): Promise<ScanReport> {
+function getAudienceIntro(reportAudience: ReportAudience): string {
+  if (reportAudience === "investor-mentor") {
+    return "For a mentor or investor review,";
+  }
+
+  if (reportAudience === "technical-reviewer") {
+    return "For a technical review,";
+  }
+
+  if (reportAudience === "accelerator") {
+    return "For an accelerator readiness review,";
+  }
+
+  return "For a founder preparing to launch,";
+}
+
+async function maybeSynthesizeWithGemini(
+  report: ScanReport,
+  description: string,
+  reportAudience: ReportAudience,
+): Promise<ScanReport> {
   const apiKey = process.env.GEMINI_API_KEY;
 
   if (!apiKey) {
@@ -986,7 +1103,7 @@ async function maybeSynthesizeWithGemini(report: ScanReport, description: string
             parts: [
               {
                 text:
-                  "You synthesize LaunchGuard AI deterministic scan results. Do not invent facts. Do not claim files were inspected if they were not. Use 'not detected in targeted scan' when uncertain. Return JSON only.",
+                  "You synthesize LaunchGuard AI deterministic scan results into audience-specific diligence language. Do not invent facts. Do not claim files were inspected if they were not. Use 'not detected in targeted scan' when uncertain. Preserve the JSON shape. Only synthesize and prioritize deterministic findings. Return JSON only.",
               },
             ],
           },
@@ -997,7 +1114,8 @@ async function maybeSynthesizeWithGemini(report: ScanReport, description: string
                 {
                   text: JSON.stringify({
                     task:
-                      "Rewrite only summary, topFindings, nextSteps, positioningFeedback, demoReadinessAdvice, and founderReadinessMemo. Keep recommendations practical. Preserve severity/category/evidence discipline. Return JSON with exactly those six keys.",
+                      "Rewrite only summary, topFindings, nextSteps, positioningFeedback, demoReadinessAdvice, founderReadinessMemo, and launchPlan. Tailor wording to reportAudience without changing evidence or scores. Keep recommendations practical. Preserve severity/category/evidence discipline. Return JSON with exactly those seven keys.",
+                    reportAudience,
                     submittedDescription: description,
                     deterministicReport: report,
                   }),
@@ -1035,6 +1153,7 @@ async function maybeSynthesizeWithGemini(report: ScanReport, description: string
         parsed.founderReadinessMemo,
         report.founderReadinessMemo,
       ),
+      launchPlan: sanitizeLaunchPlan(parsed.launchPlan, report.launchPlan),
       positioningFeedback:
         typeof parsed.positioningFeedback === "string" ? parsed.positioningFeedback : report.positioningFeedback,
       demoReadinessAdvice:
@@ -1050,6 +1169,32 @@ async function maybeSynthesizeWithGemini(report: ScanReport, description: string
           : "Gemini synthesis was attempted but failed. Showing the deterministic report.",
     };
   }
+}
+
+function sanitizeLaunchPlan(candidate: unknown, fallback: ScanReport["launchPlan"]): ScanReport["launchPlan"] {
+  if (!candidate || typeof candidate !== "object") {
+    return fallback;
+  }
+
+  const value = candidate as Partial<ScanReport["launchPlan"]>;
+
+  return {
+    beforeSharingWithUsers: sanitizeStringArray(
+      value.beforeSharingWithUsers,
+      fallback.beforeSharingWithUsers,
+      4,
+    ),
+    beforeShowingMentorsInvestors: sanitizeStringArray(
+      value.beforeShowingMentorsInvestors,
+      fallback.beforeShowingMentorsInvestors,
+      4,
+    ),
+    beforeProductionLaunch: sanitizeStringArray(
+      value.beforeProductionLaunch,
+      fallback.beforeProductionLaunch,
+      4,
+    ),
+  };
 }
 
 function sanitizeFounderReadinessMemo(

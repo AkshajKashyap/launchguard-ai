@@ -19,6 +19,8 @@ export type TopFinding = {
 
 export type AnalysisMode = "rule-based" | "ai-assisted" | "fallback";
 
+export type ReportAudience = "founder" | "investor-mentor" | "technical-reviewer" | "accelerator";
+
 export type RepoFileCheck = {
   detected: boolean;
   path: string;
@@ -104,6 +106,7 @@ export type ScanChecks = {
 export type ScanReport = {
   analysisMode: AnalysisMode;
   analysisNote?: string;
+  reportAudience: ReportAudience;
   overallScore: number;
   productionScore: number;
   securityScore: number;
@@ -117,6 +120,11 @@ export type ScanReport = {
     mainTechnicalRisk: string;
     mainMarketRisk: string;
     mentorInvestorQuestions: string[];
+  };
+  launchPlan: {
+    beforeSharingWithUsers: string[];
+    beforeShowingMentorsInvestors: string[];
+    beforeProductionLaunch: string[];
   };
   summary: string;
   topFindings: TopFinding[];
