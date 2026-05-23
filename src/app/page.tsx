@@ -12,6 +12,7 @@ import {
   ShieldCheck,
   Sparkles,
   Server,
+  Users,
 } from "lucide-react";
 import { type FormEvent, type ReactNode, useMemo, useState } from "react";
 import type { AnalysisMode, ScanReport, TopFinding } from "@/app/types";
@@ -68,6 +69,24 @@ const sampleReport: ScanReport = {
     "The sample positioning has a clear audience and launch pain. To make it stronger, add why this matters now and what evidence makes the product trustworthy.",
   demoReadinessAdvice:
     "For a screen recording, start on the first screen a real user would see, complete one primary workflow, then show the LaunchGuard report as the pre-launch checklist. Keep limitations honest and brief.",
+  founderReadinessMemo: {
+    productSummary:
+      "Based on the submitted description, this product helps early-stage builders identify launch blockers before sharing a prototype.",
+    likelyTargetUser: "Likely target user: student founders, indie hackers, and early startup teams preparing to demo.",
+    coreUserPain:
+      "Likely core pain: working prototypes can still have technical, security, UX, or positioning gaps that hurt first impressions.",
+    credibilitySignals:
+      "live demo responded with HTTP 200; package.json detected; lockfile detected; TypeScript signal detected; validation signal detected (zod)",
+    mainTechnicalRisk:
+      "Security headers were not fully detected: Add baseline browser protections through hosting or Next.js config.",
+    mainMarketRisk:
+      "Market story is directionally clear, but it should explain why the target user cares enough to run an audit before launch.",
+    mentorInvestorQuestions: [
+      "Who feels this launch-readiness pain most urgently?",
+      "What does the user currently do before showing a prototype?",
+      "What evidence proves this catches issues they would otherwise miss?",
+    ],
+  },
   checks: {
     repo: {
       owner: "sample-founder",
@@ -244,12 +263,15 @@ export default function Home() {
                 LaunchGuard AI
               </h1>
               <p className="mt-5 max-w-xl text-2xl font-medium leading-8 text-[#3d3933]">
-                AI-assisted launch-readiness audits for early-stage web apps.
+                Pre-launch technical diligence for early-stage web apps.
               </p>
               <p className="mt-5 max-w-2xl text-lg leading-8 text-[#5c564d]">
-                Paste a public GitHub repo and live demo link. LaunchGuard runs an automated audit across
-                documentation, security signals, infrastructure, demo clarity, and product positioning before you share
-                the app with users, investors, or demo audiences.
+                LaunchGuard helps early-stage builders find technical, security, UX, and positioning risks before
+                showing their product to users, investors, or demo audiences.
+              </p>
+              <p className="mt-4 max-w-2xl text-base leading-7 text-[#6e665c]">
+                It checks repo structure, docs, deployment health, security signals, validation/database/auth
+                indicators, demo clarity, and positioning because working prototypes often still hide launch blockers.
               </p>
               <div className="mt-8 flex flex-wrap gap-3">
                 <a
@@ -270,9 +292,9 @@ export default function Home() {
             </div>
 
             <div className="grid gap-3 pb-3 sm:grid-cols-3">
-              <SignalTile label="Repo checks" value="Targeted public files" />
-              <SignalTile label="Live URL" value="Status + headers" />
-              <SignalTile label="Report mode" value="Rule-based fallback" />
+              <SignalTile label="For founders" value="Before users see it" />
+              <SignalTile label="For teams" value="Cohort readiness reviews" />
+              <SignalTile label="For launches" value="Technical diligence memo" />
             </div>
           </div>
 
@@ -374,6 +396,37 @@ export default function Home() {
         </div>
       </section>
 
+      <section className="border-b border-black/10 bg-[#f6f3ee]">
+        <div className="mx-auto grid w-full max-w-7xl gap-5 px-5 py-10 sm:px-8 lg:grid-cols-3 lg:px-10">
+          <AudienceCard
+            title="Student founders"
+            text="Prepare a prototype for mentors, judges, users, or first investor conversations without missing obvious launch blockers."
+          />
+          <AudienceCard
+            title="Indie hackers"
+            text="Run a quick diligence pass before posting a side project, collecting emails, or sharing a live demo publicly."
+          />
+          <AudienceCard
+            title="Accelerators and clubs"
+            text="Review cohort projects with a consistent technical-readiness lens before demo days or showcase events."
+          />
+        </div>
+      </section>
+
+      <section className="border-b border-black/10 bg-[#fbfaf7]">
+        <div className="mx-auto grid w-full max-w-7xl gap-6 px-5 py-10 sm:px-8 lg:grid-cols-[0.85fr_1.15fr] lg:px-10">
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-[0.12em] text-[#0f766e]">Business model</p>
+            <h2 className="mt-2 text-3xl font-semibold tracking-normal">Why this could be a startup</h2>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <SignalTile label="Free" value="Public repo audits for early builders" />
+            <SignalTile label="Pro" value="Deeper scans, exports, and diligence reports" />
+            <SignalTile label="Teams" value="Accelerator cohort readiness reviews" />
+          </div>
+        </div>
+      </section>
+
       {report ? (
         <section className="mx-auto w-full max-w-7xl px-5 py-10 sm:px-8 lg:px-10 lg:py-14">
           <div className="grid gap-5 lg:grid-cols-[0.95fr_1.05fr]">
@@ -426,7 +479,12 @@ export default function Home() {
               <MetricCard icon={<Server size={20} />} label="Production" score={report.productionScore} />
               <MetricCard icon={<ShieldCheck size={20} />} label="Security" score={report.securityScore} />
               <MetricCard icon={<Globe2 size={20} />} label="Demo clarity" score={report.demoClarityScore} />
-              <MetricCard icon={<Rocket size={20} />} label="Business feasibility" score={report.businessFeasibilityScore} />
+              <MetricCard
+                icon={<Users size={20} />}
+                label="Market readiness"
+                score={report.businessFeasibilityScore}
+                subtitle="Target user, pain, value, and credibility"
+              />
             </section>
           </div>
 
@@ -446,6 +504,7 @@ export default function Home() {
             </section>
 
             <div className="space-y-5">
+              <FounderMemo memo={report.founderReadinessMemo} />
               <section className="rounded-2xl border border-black/10 bg-white p-6 shadow-sm">
                 <h2 className="text-2xl font-semibold tracking-normal">Next steps</h2>
                 <div className="mt-5 space-y-3">
@@ -473,7 +532,7 @@ function buildCopyText(report: ScanReport, mode: "summary" | "findings" | "steps
     `Production: ${report.productionScore}/100`,
     `Security: ${report.securityScore}/100`,
     `Demo clarity: ${report.demoClarityScore}/100`,
-    `Business feasibility: ${report.businessFeasibilityScore}/100`,
+    `Market readiness: ${report.businessFeasibilityScore}/100`,
   ].join("\n");
   const findings = report.topFindings
     .slice(0, mode === "findings" ? 8 : 3)
@@ -533,6 +592,15 @@ function SignalTile({ label, value }: { label: string; value: string }) {
   );
 }
 
+function AudienceCard({ title, text }: { title: string; text: string }) {
+  return (
+    <article className="rounded-2xl border border-black/10 bg-white p-5 shadow-sm">
+      <h3 className="text-lg font-semibold tracking-normal">{title}</h3>
+      <p className="mt-3 text-sm leading-6 text-[#5c564d]">{text}</p>
+    </article>
+  );
+}
+
 function LoadingStep({ label }: { label: string }) {
   return (
     <div className="flex items-center gap-2 rounded-lg bg-white/70 px-3 py-2">
@@ -542,7 +610,17 @@ function LoadingStep({ label }: { label: string }) {
   );
 }
 
-function MetricCard({ icon, label, score }: { icon: ReactNode; label: string; score: number }) {
+function MetricCard({
+  icon,
+  label,
+  score,
+  subtitle,
+}: {
+  icon: ReactNode;
+  label: string;
+  score: number;
+  subtitle?: string;
+}) {
   return (
     <div className="rounded-2xl border border-black/10 bg-white p-5 shadow-sm">
       <div className="flex items-center justify-between gap-4">
@@ -550,9 +628,46 @@ function MetricCard({ icon, label, score }: { icon: ReactNode; label: string; sc
         <span className="text-3xl font-semibold tracking-normal">{score}</span>
       </div>
       <p className="mt-4 text-sm font-semibold text-[#3d3933]">{label}</p>
+      {subtitle ? <p className="mt-1 text-xs leading-5 text-[#6e665c]">{subtitle}</p> : null}
       <div className="mt-3 h-2 overflow-hidden rounded-full bg-[#eee8df]">
         <div className="h-full rounded-full bg-[#0f766e]" style={{ width: `${score}%` }} />
       </div>
+    </div>
+  );
+}
+
+function FounderMemo({ memo }: { memo: ScanReport["founderReadinessMemo"] }) {
+  return (
+    <section className="rounded-2xl border border-black/10 bg-white p-6 shadow-sm">
+      <h2 className="text-2xl font-semibold tracking-normal">Founder Readiness Memo</h2>
+      <div className="mt-5 space-y-4">
+        <MemoItem label="Product summary" text={memo.productSummary} />
+        <MemoItem label="Likely target user" text={memo.likelyTargetUser} />
+        <MemoItem label="Core user pain" text={memo.coreUserPain} />
+        <MemoItem label="Credibility signals" text={memo.credibilitySignals} />
+        <MemoItem label="Main technical risk" text={memo.mainTechnicalRisk} />
+        <MemoItem label="Main market risk" text={memo.mainMarketRisk} />
+      </div>
+      <div className="mt-5 rounded-xl bg-[#fbfaf7] p-4">
+        <p className="text-sm font-semibold text-[#3d3933]">Mentor / investor questions</p>
+        <div className="mt-3 space-y-2">
+          {memo.mentorInvestorQuestions.map((question) => (
+            <div key={question} className="flex gap-2 text-sm leading-6 text-[#5c564d]">
+              <CheckCircle2 className="mt-1 shrink-0 text-[#0f766e]" size={15} aria-hidden="true" />
+              <p>{question}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function MemoItem({ label, text }: { label: string; text: string }) {
+  return (
+    <div>
+      <p className="text-xs font-bold uppercase tracking-[0.1em] text-[#8a8378]">{label}</p>
+      <p className="mt-1 text-sm leading-6 text-[#4f493f]">{text}</p>
     </div>
   );
 }

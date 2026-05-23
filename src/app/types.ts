@@ -109,6 +109,15 @@ export type ScanReport = {
   securityScore: number;
   demoClarityScore: number;
   businessFeasibilityScore: number;
+  founderReadinessMemo: {
+    productSummary: string;
+    likelyTargetUser: string;
+    coreUserPain: string;
+    credibilitySignals: string;
+    mainTechnicalRisk: string;
+    mainMarketRisk: string;
+    mentorInvestorQuestions: string[];
+  };
   summary: string;
   topFindings: TopFinding[];
   nextSteps: string[];

@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "LaunchGuard AI",
-  description: "AI-assisted launch-readiness audits for early-stage web apps.",
+  description: "Pre-launch technical diligence for early-stage web apps.",
 };
 
 export default function RootLayout({

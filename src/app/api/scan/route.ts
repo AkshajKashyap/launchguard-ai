@@ -236,6 +236,7 @@ async function buildRuleBasedReport(repoRef: RepoRef, liveUrl: string, descripti
     analysisMode: "rule-based",
     analysisNote: "Generated with deterministic checks. Optional AI synthesis can be enabled later with GEMINI_API_KEY.",
     ...scores,
+    founderReadinessMemo: buildFounderReadinessMemo(checks, topFindings, description),
     summary: buildSummary(checks, scores, topFindings),
     topFindings,
     nextSteps: buildNextSteps(checks, topFindings),
@@ -597,7 +598,9 @@ function calculateScores(checks: ScanChecks) {
       (description.hasValueProposition ? 0 : 16) -
       (description.tooShort ? 14 : 0) -
       (description.featureOnly ? 8 : 0) -
-      (checks.liveUrl.ok ? 0 : 8),
+      (checks.liveUrl.ok ? 0 : 8) -
+      (checks.signals.readmeQuality.hasProjectPurpose ? 0 : 5) -
+      (checks.signals.readmeQuality.hasDemoLink || checks.liveUrl.ok ? 0 : 5),
   );
 
   const overallScore = Math.round(
@@ -821,6 +824,113 @@ function buildNextSteps(checks: ScanChecks, findings: TopFinding[]): string[] {
   return unique(steps).slice(0, 6);
 }
 
+function buildFounderReadinessMemo(
+  checks: ScanChecks,
+  findings: TopFinding[],
+  description: string,
+): ScanReport["founderReadinessMemo"] {
+  const quality = checks.signals.descriptionQuality;
+  const repoName = `${checks.repo.owner}/${checks.repo.name}`;
+  const targetUser = quality.hasTargetUser
+    ? inferTargetUser(description)
+    : "Target user is not clearly stated in the submitted description.";
+  const corePain = quality.hasProblem
+    ? inferCorePain(description)
+    : "Core user pain is not clearly stated yet; the pitch should explain the launch or workflow problem.";
+  const credibilitySignals = buildCredibilitySignals(checks);
+  const mainTechnicalFinding =
+    findings.find((finding) => finding.category !== "business") ??
+    findings[0];
+  const mainMarketFinding =
+    findings.find((finding) => finding.category === "business") ??
+    (!checks.signals.productDescriptionClear
+      ? {
+          title: "Market story is under-specified",
+          recommendation: "Clarify the target user, pain, and value proposition.",
+        }
+      : undefined);
+
+  return {
+    productSummary: description.trim()
+      ? `Based on the submitted description, ${description.trim()}`
+      : `The product summary for ${repoName} is not clear because no description was provided.`,
+    likelyTargetUser: targetUser,
+    coreUserPain: corePain,
+    credibilitySignals,
+    mainTechnicalRisk: mainTechnicalFinding
+      ? `${mainTechnicalFinding.title}: ${mainTechnicalFinding.recommendation}`
+      : "No major technical risk was generated from the targeted scan, but this is not a full code audit.",
+    mainMarketRisk: mainMarketFinding
+      ? `${mainMarketFinding.title}: ${mainMarketFinding.recommendation}`
+      : "Market readiness looks directionally clear from the submitted description; validate that users care enough to try it now.",
+    mentorInvestorQuestions: buildMentorInvestorQuestions(checks),
+  };
+}
+
+function inferTargetUser(description: string): string {
+  const directFor = description.match(/\bfor\s+([^.,;]+)/i)?.[1]?.trim();
+  const directHelps = description.match(/\bhelps\s+([^.,;]+?)\s+(?:who|to|catch|find|build|launch|with)\b/i)?.[1]?.trim();
+  const candidate = directFor || directHelps;
+
+  return candidate
+    ? `Likely target user: ${candidate}.`
+    : "The description suggests a target user, but it should name the user segment more directly.";
+}
+
+function inferCorePain(description: string): string {
+  const beforeClause = description.match(/\bbefore\s+([^.,;]+)/i)?.[1]?.trim();
+  const riskClause = description.match(/\b(?:risk|blocker|pain|problem|catch|find)\w*\s+([^.,;]+)/i)?.[1]?.trim();
+  const candidate = beforeClause || riskClause;
+
+  return candidate
+    ? `Likely core pain: ${candidate}.`
+    : "The description gestures at a problem, but the pain should be stated in plainer user language.";
+}
+
+function buildCredibilitySignals(checks: ScanChecks): string {
+  const signals = [
+    checks.liveUrl.ok ? `live demo responded with HTTP ${checks.liveUrl.status}` : "",
+    checks.signals.packageJsonExists ? "package.json detected" : "",
+    checks.signals.lockfileExists ? "lockfile detected" : "",
+    checks.signals.typescriptDetected ? "TypeScript signal detected" : "",
+    checks.signals.validationLibraryDetected
+      ? `validation signal detected (${checks.signals.validationLibraries.join(", ")})`
+      : "",
+    checks.signals.databaseDetected ? "database tooling signal detected" : "",
+    checks.signals.authOrMiddlewareDetected ? "auth or middleware signal detected" : "",
+  ].filter(Boolean);
+
+  return signals.length > 0
+    ? signals.join("; ")
+    : "Few credibility signals were detected in the targeted scan. Add clearer docs, demo evidence, and setup details.";
+}
+
+function buildMentorInvestorQuestions(checks: ScanChecks): string[] {
+  const questions = [
+    "Who feels this problem most urgently, and what are they doing today instead?",
+    "What is the first workflow a user should complete in the live demo?",
+    "What evidence shows this is ready to share beyond a local prototype?",
+  ];
+
+  if (!checks.signals.productDescriptionClear) {
+    questions.push("Can the founder explain the user, pain, and outcome in one sentence?");
+  }
+
+  if (!checks.liveUrl.ok) {
+    questions.push("Why should a reviewer trust the launch if the public demo is not reachable?");
+  }
+
+  if (checks.signals.possibleSecretPatterns.length > 0) {
+    questions.push("Have all possible secret-like patterns been manually verified and rotated if needed?");
+  }
+
+  if (checks.signals.apiRoutesDetected && !checks.signals.validationLibraryDetected) {
+    questions.push("How is user input validated before it reaches API logic or the database?");
+  }
+
+  return questions.slice(0, 5);
+}
+
 function buildPositioningFeedback(checks: ScanChecks, description: string): string {
   const quality = checks.signals.descriptionQuality;
 
@@ -835,10 +945,10 @@ function buildPositioningFeedback(checks: ScanChecks, description: string): stri
   ].filter(Boolean);
 
   if (gaps.length === 0 && !quality.tooShort) {
-    return `The positioning is credible for a first launch: "${description.trim()}". To make it stronger, add why this matters now and what evidence makes the product trustworthy.`;
+    return `Market readiness is directionally strong: "${description.trim()}". To make it stronger, add why this problem matters now, what the user does today instead, and what evidence makes the current product credible.`;
   }
 
-  return `The current positioning has a usable start, but it should clarify ${gaps.join(", ") || "specificity"}. A stronger launch sentence would name who feels the pain, when they feel it, why it matters before launch, and why this product is credible.`;
+  return `Market readiness needs sharper language around ${gaps.join(", ") || "specificity"}. A stronger launch sentence would name who feels the pain, when they feel it, why they care, and why this product is credible enough to try.`;
 }
 
 function buildDemoReadinessAdvice(checks: ScanChecks): string {
@@ -887,7 +997,7 @@ async function maybeSynthesizeWithGemini(report: ScanReport, description: string
                 {
                   text: JSON.stringify({
                     task:
-                      "Rewrite only summary, topFindings, nextSteps, positioningFeedback, and demoReadinessAdvice. Keep recommendations practical. Preserve severity/category/evidence discipline. Return JSON with exactly those five keys.",
+                      "Rewrite only summary, topFindings, nextSteps, positioningFeedback, demoReadinessAdvice, and founderReadinessMemo. Keep recommendations practical. Preserve severity/category/evidence discipline. Return JSON with exactly those six keys.",
                     submittedDescription: description,
                     deterministicReport: report,
                   }),
@@ -921,6 +1031,10 @@ async function maybeSynthesizeWithGemini(report: ScanReport, description: string
       summary: typeof parsed.summary === "string" ? parsed.summary : report.summary,
       topFindings: sanitizeFindings(parsed.topFindings, report.topFindings),
       nextSteps: sanitizeStringArray(parsed.nextSteps, report.nextSteps, 6),
+      founderReadinessMemo: sanitizeFounderReadinessMemo(
+        parsed.founderReadinessMemo,
+        report.founderReadinessMemo,
+      ),
       positioningFeedback:
         typeof parsed.positioningFeedback === "string" ? parsed.positioningFeedback : report.positioningFeedback,
       demoReadinessAdvice:
@@ -936,6 +1050,33 @@ async function maybeSynthesizeWithGemini(report: ScanReport, description: string
           : "Gemini synthesis was attempted but failed. Showing the deterministic report.",
     };
   }
+}
+
+function sanitizeFounderReadinessMemo(
+  candidate: unknown,
+  fallback: ScanReport["founderReadinessMemo"],
+): ScanReport["founderReadinessMemo"] {
+  if (!candidate || typeof candidate !== "object") {
+    return fallback;
+  }
+
+  const value = candidate as Partial<ScanReport["founderReadinessMemo"]>;
+
+  return {
+    productSummary: typeof value.productSummary === "string" ? value.productSummary : fallback.productSummary,
+    likelyTargetUser: typeof value.likelyTargetUser === "string" ? value.likelyTargetUser : fallback.likelyTargetUser,
+    coreUserPain: typeof value.coreUserPain === "string" ? value.coreUserPain : fallback.coreUserPain,
+    credibilitySignals:
+      typeof value.credibilitySignals === "string" ? value.credibilitySignals : fallback.credibilitySignals,
+    mainTechnicalRisk:
+      typeof value.mainTechnicalRisk === "string" ? value.mainTechnicalRisk : fallback.mainTechnicalRisk,
+    mainMarketRisk: typeof value.mainMarketRisk === "string" ? value.mainMarketRisk : fallback.mainMarketRisk,
+    mentorInvestorQuestions: sanitizeStringArray(
+      value.mentorInvestorQuestions,
+      fallback.mentorInvestorQuestions,
+      5,
+    ),
+  };
 }
 
 function sanitizeFindings(candidateFindings: unknown, fallback: TopFinding[]): TopFinding[] {
