@@ -24,6 +24,16 @@ type FetchedFile = {
 
 type ReadmeQuality = ScanChecks["signals"]["readmeQuality"];
 type DescriptionQuality = ScanChecks["signals"]["descriptionQuality"];
+type SynthesisPatch = Pick<
+  ScanReport,
+  | "summary"
+  | "positioningFeedback"
+  | "demoReadinessAdvice"
+  | "nextSteps"
+  | "founderReadinessMemo"
+  | "launchPlan"
+  | "launchSimulation"
+>;
 
 const TARGET_FILES = [
   "README.md",
@@ -79,6 +89,9 @@ const DEPENDENCIES_TO_DETECT = [
 
 const VALIDATION_LIBRARIES = ["zod", "yup", "valibot", "joi"] as const;
 const DATABASE_SIGNALS = ["prisma", "@prisma/client", "supabase", "drizzle", "neon"] as const;
+const GEMINI_MODEL = "gemini-3.5-flash";
+const GEMINI_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
+const GEMINI_TIMEOUT_MS = 30000;
 
 const severityRank: Record<TopFinding["severity"], number> = {
   critical: 0,
@@ -111,6 +124,7 @@ export async function POST(request: Request) {
 
   const deterministicReport = await buildRuleBasedReport(repoParseResult.repo, liveParseResult.url, description, reportAudience);
   const finalReport = await maybeSynthesizeWithGemini(deterministicReport, description, reportAudience);
+  console.info("[LaunchGuard] final analysisMode:", finalReport.analysisMode);
 
   return Response.json(finalReport);
 }
@@ -1158,55 +1172,69 @@ async function maybeSynthesizeWithGemini(
   reportAudience: ReportAudience,
 ): Promise<ScanReport> {
   const apiKey = process.env.GEMINI_API_KEY;
+  const hasApiKey = Boolean(apiKey);
+  console.info("[LaunchGuard] GEMINI_API_KEY present:", hasApiKey);
+  console.info("[LaunchGuard] Gemini model used:", GEMINI_MODEL);
 
   if (!apiKey) {
+    console.info("[LaunchGuard] Gemini synthesis attempted:", false);
+    console.info("[LaunchGuard] Gemini HTTP status:", "not attempted");
+    console.info("[LaunchGuard] Gemini response text length:", 0);
+    console.info("[LaunchGuard] Gemini JSON parse success:", false);
     return report;
   }
 
+  console.info("[LaunchGuard] Gemini synthesis attempted:", true);
+  let httpStatusLogged = false;
+  let responseTextLengthLogged = false;
+  let jsonParseLogged = false;
+
   try {
-    const response = await fetchWithTimeout(
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
-      {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          "x-goog-api-key": apiKey,
+    const response = await fetchWithTimeout(GEMINI_ENDPOINT, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-goog-api-key": apiKey,
+      },
+      body: JSON.stringify({
+        system_instruction: {
+          parts: [
+            {
+              text:
+                "You synthesize LaunchGuard AI deterministic scan evidence into audience-specific diligence language. Do not invent facts. Do not claim files were inspected if they were not. Use 'not detected in targeted scan' when uncertain. Scores and top findings are deterministic source-of-truth and must not be changed. Return JSON only.",
+            },
+          ],
         },
-        body: JSON.stringify({
-          system_instruction: {
+        contents: [
+          {
+            role: "user",
             parts: [
               {
-                text:
-                  "You synthesize LaunchGuard AI deterministic scan results into audience-specific diligence language. Do not invent facts. Do not claim files were inspected if they were not. Use 'not detected in targeted scan' when uncertain. Preserve the JSON shape. Only synthesize and prioritize deterministic findings. Return JSON only.",
+                text: JSON.stringify({
+                  task:
+                    "Return a synthesisPatch JSON object with exactly these keys when useful: summary, positioningFeedback, demoReadinessAdvice, nextSteps, founderReadinessMemo, launchPlan, launchSimulation. Do not return scores. Do not return topFindings. Preserve the provided evidence and tailor wording to reportAudience.",
+                  reportAudience,
+                  reportAudienceLabel: getAudienceIntro(reportAudience),
+                  submittedDescription: description,
+                  deterministicEvidence: buildGeminiEvidencePackage(report),
+                }),
               },
             ],
           },
-          contents: [
-            {
-              role: "user",
-              parts: [
-                {
-                  text: JSON.stringify({
-                    task:
-                      "Rewrite only summary, topFindings, nextSteps, positioningFeedback, demoReadinessAdvice, founderReadinessMemo, launchPlan, and launchSimulation. Tailor wording to reportAudience without changing evidence or scores. Keep recommendations practical. Preserve severity/category/evidence discipline. Return JSON with exactly those eight keys.",
-                    reportAudience,
-                    submittedDescription: description,
-                    deterministicReport: report,
-                  }),
-                },
-              ],
-            },
-          ],
-          generationConfig: {
-            response_mime_type: "application/json",
-            temperature: 0.2,
-          },
-        }),
-      },
-      9000,
-    );
+        ],
+        generationConfig: {
+          temperature: 0.2,
+          responseMimeType: "application/json",
+        },
+      }),
+    }, GEMINI_TIMEOUT_MS);
+    console.info("[LaunchGuard] Gemini HTTP status:", response.status);
+    httpStatusLogged = true;
 
     if (!response.ok) {
+      const errorText = await response.text().catch(() => "");
+      console.info("[LaunchGuard] Gemini response text length:", errorText.length);
+      responseTextLengthLogged = true;
       throw new Error(`Gemini returned HTTP ${response.status}`);
     }
 
@@ -1214,35 +1242,185 @@ async function maybeSynthesizeWithGemini(
       candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
     };
     const text = data.candidates?.[0]?.content?.parts?.map((part) => part.text ?? "").join("") ?? "";
-    const parsed = JSON.parse(text) as Partial<ScanReport>;
+    console.info("[LaunchGuard] Gemini response text length:", text.length);
+    responseTextLengthLogged = true;
+    const parsed = extractJsonObject(text);
+    const patch = normalizeSynthesisPatch(parsed);
+    console.info("[LaunchGuard] Gemini JSON parse success:", Boolean(patch));
+    jsonParseLogged = true;
+
+    if (!patch) {
+      throw new Error("Gemini returned invalid JSON");
+    }
 
     return {
       ...report,
       analysisMode: "ai-assisted",
-      analysisNote: "AI-assisted synthesis is enabled. Deterministic checks remain the source of truth.",
-      summary: typeof parsed.summary === "string" ? parsed.summary : report.summary,
-      topFindings: sanitizeFindings(parsed.topFindings, report.topFindings),
-      nextSteps: sanitizeStringArray(parsed.nextSteps, report.nextSteps, 6),
+      analysisNote:
+        "Gemini synthesized deterministic scan evidence into the memo, launch plan, simulation, and audience-specific guidance.",
+      summary: typeof patch.summary === "string" ? patch.summary : report.summary,
+      nextSteps: sanitizeStringArray(patch.nextSteps, report.nextSteps, 6),
       founderReadinessMemo: sanitizeFounderReadinessMemo(
-        parsed.founderReadinessMemo,
+        patch.founderReadinessMemo,
         report.founderReadinessMemo,
       ),
-      launchPlan: sanitizeLaunchPlan(parsed.launchPlan, report.launchPlan),
-      launchSimulation: sanitizeLaunchSimulation(parsed.launchSimulation, report.launchSimulation),
+      launchPlan: sanitizeLaunchPlan(patch.launchPlan, report.launchPlan),
+      launchSimulation: sanitizeLaunchSimulation(patch.launchSimulation, report.launchSimulation),
       positioningFeedback:
-        typeof parsed.positioningFeedback === "string" ? parsed.positioningFeedback : report.positioningFeedback,
+        typeof patch.positioningFeedback === "string" ? patch.positioningFeedback : report.positioningFeedback,
       demoReadinessAdvice:
-        typeof parsed.demoReadinessAdvice === "string" ? parsed.demoReadinessAdvice : report.demoReadinessAdvice,
+        typeof patch.demoReadinessAdvice === "string" ? patch.demoReadinessAdvice : report.demoReadinessAdvice,
     };
   } catch (error) {
+    const errorInfo = getSafeErrorInfo(error);
+    console.info("[LaunchGuard] Gemini error name:", errorInfo.name);
+    console.info("[LaunchGuard] Gemini error message:", errorInfo.message);
+    console.info("[LaunchGuard] Gemini error cause code:", errorInfo.causeCode);
+    console.info("[LaunchGuard] Gemini timeout/AbortError:", errorInfo.isAbortOrTimeout);
+
+    if (!httpStatusLogged) {
+      console.info("[LaunchGuard] Gemini HTTP status:", "request failed");
+    }
+
+    if (!responseTextLengthLogged) {
+      console.info("[LaunchGuard] Gemini response text length:", 0);
+    }
+
+    if (!jsonParseLogged) {
+      console.info("[LaunchGuard] Gemini JSON parse success:", false);
+    }
+
     return {
       ...report,
       analysisMode: "fallback",
-      analysisNote:
-        error instanceof Error
-          ? `Gemini synthesis was attempted but failed (${error.message}). Showing the deterministic report.`
-          : "Gemini synthesis was attempted but failed. Showing the deterministic report.",
+      analysisNote: "Gemini synthesis was unavailable, so LaunchGuard returned the rule-based report.",
     };
+  }
+}
+
+function normalizeSynthesisPatch(candidate: unknown): Partial<SynthesisPatch> | null {
+  if (!candidate || typeof candidate !== "object") {
+    return null;
+  }
+
+  const record = candidate as Record<string, unknown>;
+  const maybeWrapped = record.synthesisPatch;
+
+  if (maybeWrapped && typeof maybeWrapped === "object") {
+    return maybeWrapped as Partial<SynthesisPatch>;
+  }
+
+  return record as Partial<SynthesisPatch>;
+}
+
+function buildGeminiEvidencePackage(report: ScanReport) {
+  return {
+    scores: {
+      overallScore: report.overallScore,
+      productionScore: report.productionScore,
+      securityScore: report.securityScore,
+      demoClarityScore: report.demoClarityScore,
+      businessFeasibilityScore: report.businessFeasibilityScore,
+    },
+    topFindings: report.topFindings,
+    checksSummary: {
+      repo: {
+        owner: report.checks.repo.owner,
+        name: report.checks.repo.name,
+        detectedFiles: report.checks.repo.detectedFiles,
+        missingFiles: report.checks.repo.missingFiles,
+        apiRouteIndicators: report.checks.repo.apiRouteIndicators,
+        dependencies: report.checks.repo.dependencies,
+      },
+      liveUrl: {
+        ok: report.checks.liveUrl.ok,
+        status: report.checks.liveUrl.status,
+        securityHeaders: report.checks.liveUrl.securityHeaders,
+      },
+      signals: {
+        readmeExists: report.checks.signals.readmeExists,
+        readmeHasSetupInstructions: report.checks.signals.readmeHasSetupInstructions,
+        packageJsonExists: report.checks.signals.packageJsonExists,
+        envExampleExists: report.checks.signals.envExampleExists,
+        lockfileExists: report.checks.signals.lockfileExists,
+        authOrMiddlewareDetected: report.checks.signals.authOrMiddlewareDetected,
+        apiRoutesDetected: report.checks.signals.apiRoutesDetected,
+        validationLibraryDetected: report.checks.signals.validationLibraryDetected,
+        validationLibraries: report.checks.signals.validationLibraries,
+        databaseDetected: report.checks.signals.databaseDetected,
+        databaseSignals: report.checks.signals.databaseSignals,
+        possibleSecretPatternCount: report.checks.signals.possibleSecretPatterns.length,
+        productDescriptionClear: report.checks.signals.productDescriptionClear,
+        deploymentConfigDetected: report.checks.signals.deploymentConfigDetected,
+        typescriptDetected: report.checks.signals.typescriptDetected,
+        readmeQuality: report.checks.signals.readmeQuality,
+        descriptionQuality: report.checks.signals.descriptionQuality,
+      },
+    },
+    currentReportText: {
+      summary: report.summary,
+      nextSteps: report.nextSteps,
+      founderReadinessMemo: report.founderReadinessMemo,
+      launchPlan: report.launchPlan,
+      launchSimulation: report.launchSimulation,
+      positioningFeedback: report.positioningFeedback,
+      demoReadinessAdvice: report.demoReadinessAdvice,
+    },
+  };
+}
+
+function getSafeErrorInfo(error: unknown) {
+  const errorRecord = error && typeof error === "object" ? (error as Record<string, unknown>) : {};
+  const cause = errorRecord.cause;
+  const causeRecord = cause && typeof cause === "object" ? (cause as Record<string, unknown>) : {};
+  const name = error instanceof Error ? error.name : typeof errorRecord.name === "string" ? errorRecord.name : "UnknownError";
+  const message =
+    error instanceof Error
+      ? error.message
+      : typeof errorRecord.message === "string"
+        ? errorRecord.message
+        : "No error message available.";
+  const causeCode =
+    typeof causeRecord.code === "string" || typeof causeRecord.code === "number"
+      ? String(causeRecord.code)
+      : "none";
+  const lowerMessage = message.toLowerCase();
+
+  return {
+    name,
+    message,
+    causeCode,
+    isAbortOrTimeout: name === "AbortError" || lowerMessage.includes("abort") || lowerMessage.includes("timeout"),
+  };
+}
+
+function extractJsonObject(text: string | undefined | null): unknown | null {
+  if (!text) {
+    return null;
+  }
+
+  const trimmed = text
+    .trim()
+    .replace(/^```json\s*/i, "")
+    .replace(/^```\s*/i, "")
+    .replace(/```$/i, "")
+    .trim();
+
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    const start = trimmed.indexOf("{");
+    const end = trimmed.lastIndexOf("}");
+
+    if (start === -1 || end === -1 || end <= start) {
+      return null;
+    }
+
+    try {
+      return JSON.parse(trimmed.slice(start, end + 1));
+    } catch {
+      return null;
+    }
   }
 }
 
@@ -1330,49 +1508,6 @@ function sanitizeFounderReadinessMemo(
       5,
     ),
   };
-}
-
-function sanitizeFindings(candidateFindings: unknown, fallback: TopFinding[]): TopFinding[] {
-  if (!Array.isArray(candidateFindings)) {
-    return fallback;
-  }
-
-  const allowedSeverities = new Set(["critical", "high", "medium", "low"]);
-  const allowedCategories = new Set([
-    "security",
-    "infrastructure",
-    "database",
-    "ux",
-    "business",
-    "documentation",
-    "deployment",
-  ]);
-
-  const findings = candidateFindings
-    .map((finding) => {
-      if (!finding || typeof finding !== "object") {
-        return null;
-      }
-
-      const value = finding as Partial<TopFinding>;
-
-      if (
-        !allowedSeverities.has(String(value.severity)) ||
-        !allowedCategories.has(String(value.category)) ||
-        typeof value.title !== "string" ||
-        typeof value.evidence !== "string" ||
-        typeof value.recommendation !== "string"
-      ) {
-        return null;
-      }
-
-      return value as TopFinding;
-    })
-    .filter((finding): finding is TopFinding => Boolean(finding));
-
-  return findings.length > 0
-    ? findings.sort((a, b) => severityRank[a.severity] - severityRank[b.severity]).slice(0, 8)
-    : fallback;
 }
 
 function sanitizeStringArray(candidate: unknown, fallback: string[], limit: number): string[] {
