@@ -306,7 +306,8 @@ export default function Home() {
                 It checks repo structure, docs, deployment health, security signals, validation/database/auth
                 indicators, demo clarity, and positioning because working prototypes often still hide launch blockers.
               </p>
-              <div className="mt-8 flex flex-wrap gap-3">
+              <div className="mt-8 space-y-3">
+                <div className="flex flex-wrap gap-3">
                 <a
                   href="#scan"
                   className="inline-flex h-12 items-center gap-2 rounded-lg bg-[#0f766e] px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#0b5f59]"
@@ -321,6 +322,10 @@ export default function Home() {
                 >
                   Load sample report
                 </button>
+                </div>
+                <p className="max-w-md text-sm leading-6 text-[#6e665c]">
+                  Use the sample report if Wi-Fi, GitHub, or the live deployment check is slow during a demo.
+                </p>
               </div>
             </div>
 
@@ -445,32 +450,33 @@ export default function Home() {
       </section>
 
       <section className="border-b border-black/10 bg-[#f6f3ee]">
-        <div className="mx-auto grid w-full max-w-7xl gap-5 px-5 py-10 sm:px-8 lg:grid-cols-3 lg:px-10">
-          <AudienceCard
-            title="Student founders"
-            text="Prepare a prototype for mentors, judges, users, or first investor conversations without missing obvious launch blockers."
-          />
-          <AudienceCard
-            title="Indie hackers"
-            text="Run a quick diligence pass before posting a side project, collecting emails, or sharing a live demo publicly."
-          />
-          <AudienceCard
-            title="Accelerators and clubs"
-            text="Review cohort projects with a consistent technical-readiness lens before demo days or showcase events."
-          />
+        <div className="mx-auto w-full max-w-7xl px-5 py-10 sm:px-8 lg:px-10">
+          <SectionIntro eyebrow="How it works" title="From repo evidence to launch report" />
+          <div className="mt-5 grid gap-5 lg:grid-cols-3">
+            <AudienceCard
+              title="Collect evidence"
+              text="Scans public repo files, dependencies, docs, deployment status, and security headers."
+            />
+            <AudienceCard
+              title="Score readiness"
+              text="Converts technical and product signals into production, security, demo, and market-readiness scores."
+            />
+            <AudienceCard
+              title="Generate launch report"
+              text="Produces audience-specific findings, launch plan, founder memo, and brief."
+            />
+          </div>
         </div>
       </section>
 
       <section className="border-b border-black/10 bg-[#fbfaf7]">
-        <div className="mx-auto grid w-full max-w-7xl gap-6 px-5 py-10 sm:px-8 lg:grid-cols-[0.85fr_1.15fr] lg:px-10">
-          <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.12em] text-[#0f766e]">Business model</p>
-            <h2 className="mt-2 text-3xl font-semibold tracking-normal">Why this could be a startup</h2>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-3">
-            <SignalTile label="Free" value="Public repo audits for early builders" />
-            <SignalTile label="Pro" value="Deeper scans, exports, and diligence reports" />
-            <SignalTile label="Teams" value="Accelerator cohort readiness reviews" />
+        <div className="mx-auto w-full max-w-7xl px-5 py-10 sm:px-8 lg:px-10">
+          <SectionIntro eyebrow="Report output" title="What the report includes" />
+          <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <SignalTile label="Scores" value="Production, security, demo, market" />
+            <SignalTile label="Risks" value="Evidence-backed launch blockers" />
+            <SignalTile label="Memo" value="Founder-ready diligence summary" />
+            <SignalTile label="Plan" value="Actions before users, mentors, launch" />
           </div>
         </div>
       </section>
@@ -487,6 +493,40 @@ export default function Home() {
             LaunchGuard is not a generic prompt. It first collects structured evidence from the public repo and live
             deployment, then turns those deterministic signals into a diligence report for the audience you choose.
           </p>
+        </div>
+      </section>
+
+      <section className="border-b border-black/10 bg-[#f6f3ee]">
+        <div className="mx-auto w-full max-w-7xl px-5 py-10 sm:px-8 lg:px-10">
+          <SectionIntro eyebrow="Who uses this" title="Built for early launch reviews" />
+          <div className="mt-5 grid gap-5 lg:grid-cols-3">
+            <AudienceCard
+              title="Student founders"
+              text="Prepare a prototype for mentors, judges, users, or first investor conversations without missing obvious launch blockers."
+            />
+            <AudienceCard
+              title="Indie hackers"
+              text="Run a quick diligence pass before posting a side project, collecting emails, or sharing a live demo publicly."
+            />
+            <AudienceCard
+              title="Accelerators and clubs"
+              text="Review cohort projects with a consistent technical-readiness lens before demo days or showcase events."
+            />
+          </div>
+        </div>
+      </section>
+
+      <section className="border-b border-black/10 bg-[#fbfaf7]">
+        <div className="mx-auto grid w-full max-w-7xl gap-6 px-5 py-8 sm:px-8 lg:grid-cols-[0.85fr_1.15fr] lg:px-10">
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-[0.12em] text-[#0f766e]">Workflow</p>
+            <h2 className="mt-2 text-3xl font-semibold tracking-normal">Built for a real workflow</h2>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <SignalTile label="Free" value="Public launch audits for early builders" />
+            <SignalTile label="Pro" value="Deeper scans, exports, and saved diligence reports" />
+            <SignalTile label="Teams" value="Cohort readiness reviews for accelerators and clubs" />
+          </div>
         </div>
       </section>
 
@@ -512,6 +552,17 @@ export default function Home() {
               <p className="mt-5 text-base leading-7 text-[#5c564d]">{report.summary}</p>
               <p className="mt-3 text-sm leading-6 text-[#6e665c]">{modeDescriptions[report.analysisMode]}</p>
               {report.analysisNote ? <p className="mt-2 text-sm leading-6 text-[#6e665c]">{report.analysisNote}</p> : null}
+              <div className="mt-5 rounded-xl bg-[#fbfaf7] p-4">
+                <p className="text-sm font-semibold text-[#3d3933]">Top 3 launch blockers</p>
+                <div className="mt-3 space-y-2">
+                  {report.topFindings.slice(0, 3).map((finding) => (
+                    <div key={`${finding.category}-${finding.title}`} className="flex gap-2 text-sm leading-6 text-[#5c564d]">
+                      <AlertTriangle className="mt-1 shrink-0 text-[#b45309]" size={15} aria-hidden="true" />
+                      <p>{finding.title}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
               <div className="mt-6 flex flex-wrap gap-3">
                 <CopyButton
                   label="Copy report summary"
@@ -594,6 +645,12 @@ export default function Home() {
           <LaunchPlan plan={report.launchPlan} />
         </section>
       ) : null}
+      <footer className="border-t border-black/10 bg-[#161513] px-5 py-8 text-white sm:px-8 lg:px-10">
+        <div className="mx-auto flex w-full max-w-7xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm font-semibold">LaunchGuard AI</p>
+          <p className="text-sm text-white/70">Pre-launch technical diligence grounded in repo and deployment evidence.</p>
+        </div>
+      </footer>
     </main>
   );
 }
@@ -696,6 +753,15 @@ function SignalTile({ label, value }: { label: string; value: string }) {
     <div className="rounded-xl border border-black/10 bg-white/70 p-4">
       <p className="text-sm font-medium text-[#6e665c]">{label}</p>
       <p className="mt-1 text-base font-semibold text-[#161513]">{value}</p>
+    </div>
+  );
+}
+
+function SectionIntro({ eyebrow, title }: { eyebrow: string; title: string }) {
+  return (
+    <div>
+      <p className="text-sm font-semibold uppercase tracking-[0.12em] text-[#0f766e]">{eyebrow}</p>
+      <h2 className="mt-2 text-3xl font-semibold tracking-normal">{title}</h2>
     </div>
   );
 }
