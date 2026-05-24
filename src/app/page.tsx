@@ -576,8 +576,8 @@ export default function Home() {
 
       {report ? (
         <section ref={reportRef} className="mx-auto w-full max-w-7xl scroll-mt-6 px-5 py-8 sm:px-8 lg:px-10 lg:py-10">
-          <div className="grid gap-5 lg:grid-cols-[0.95fr_1.05fr]">
-            <section className="rounded-2xl border border-black/10 bg-white p-5 shadow-sm sm:p-6">
+          <div className="grid items-start gap-5 lg:grid-cols-[0.95fr_1.05fr]">
+            <section className="self-start rounded-2xl border border-black/10 bg-white p-5 shadow-sm sm:p-6">
               <div className="flex flex-wrap items-start justify-between gap-5">
                 <div>
                   <p className="text-sm font-semibold uppercase tracking-[0.12em] text-[#0f766e]">
@@ -655,8 +655,8 @@ export default function Home() {
             </section>
           </div>
 
-          <div className="mt-5 grid gap-5 lg:grid-cols-[1.15fr_0.85fr]">
-            <section className="rounded-2xl border border-black/10 bg-white p-6 shadow-sm">
+          <div className="mt-5 grid items-start gap-5 lg:grid-cols-[1.15fr_0.85fr]">
+            <section className="self-start rounded-2xl border border-black/10 bg-white p-6 shadow-sm">
               <div className="flex items-center justify-between gap-4">
                 <h2 className="text-2xl font-semibold tracking-normal">Top findings</h2>
                 <span className="rounded-full bg-[#f6f3ee] px-3 py-1 text-sm font-medium text-[#6e665c]">
