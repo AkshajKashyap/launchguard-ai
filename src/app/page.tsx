@@ -14,7 +14,7 @@ import {
   Server,
   Users,
 } from "lucide-react";
-import { type FormEvent, type ReactNode, useMemo, useState } from "react";
+import { type FormEvent, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import type { AnalysisMode, ReportAudience, ScanReport, TopFinding } from "@/app/types";
 
 const sampleInputs = {
@@ -232,11 +232,20 @@ export default function Home() {
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [copiedLabel, setCopiedLabel] = useState("");
+  const reportRef = useRef<HTMLElement | null>(null);
 
   const reportSummaryText = useMemo(() => (report ? buildCopyText(report, "summary") : ""), [report]);
   const topFindingsText = useMemo(() => (report ? buildCopyText(report, "findings") : ""), [report]);
   const nextStepsText = useMemo(() => (report ? buildCopyText(report, "steps") : ""), [report]);
   const founderBriefText = useMemo(() => (report ? buildFounderBrief(report) : ""), [report]);
+
+  useEffect(() => {
+    if (!report) {
+      return;
+    }
+
+    reportRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [report]);
 
   async function runScan(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -338,20 +347,20 @@ export default function Home() {
               </p>
               <div className="mt-8 space-y-3">
                 <div className="flex flex-wrap gap-3">
-                <a
-                  href="#scan"
-                  className="inline-flex h-12 items-center gap-2 rounded-lg bg-[#0f766e] px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#0b5f59]"
-                >
-                  <Rocket size={18} aria-hidden="true" />
-                  Run launch audit
-                </a>
-                <button
-                  type="button"
-                  onClick={loadSampleReport}
-                  className="inline-flex h-12 items-center rounded-lg border border-black/15 bg-white px-5 text-sm font-semibold text-[#161513] shadow-sm transition hover:border-black/30"
-                >
-                  Load sample report
-                </button>
+                  <a
+                    href="#scan"
+                    className="inline-flex h-12 items-center gap-2 rounded-lg bg-[#0f766e] px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#0b5f59]"
+                  >
+                    <Rocket size={18} aria-hidden="true" />
+                    Run launch audit
+                  </a>
+                  <button
+                    type="button"
+                    onClick={loadSampleReport}
+                    className="inline-flex h-12 items-center rounded-lg border border-black/15 bg-white px-5 text-sm font-semibold text-[#161513] shadow-sm transition hover:border-black/30"
+                  >
+                    Load sample report
+                  </button>
                 </div>
                 <p className="max-w-md text-sm leading-6 text-[#6e665c]">
                   Use the sample report if Wi-Fi, GitHub, or the live deployment check is slow during a demo.
@@ -479,91 +488,96 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="border-b border-black/10 bg-[#f6f3ee]">
-        <div className="mx-auto w-full max-w-7xl px-5 py-10 sm:px-8 lg:px-10">
-          <SectionIntro eyebrow="How it works" title="From repo evidence to launch report" />
-          <div className="mt-5 grid gap-5 lg:grid-cols-3">
-            <AudienceCard
-              title="Collect evidence"
-              text="Scans public repo files, dependencies, docs, deployment status, and security headers."
-            />
-            <AudienceCard
-              title="Score readiness"
-              text="Converts technical and product signals into production, security, demo, and market-readiness scores."
-            />
-            <AudienceCard
-              title="Generate launch report"
-              text="Produces audience-specific findings, launch plan, founder memo, and brief."
-            />
-          </div>
-        </div>
-      </section>
+      {!report ? (
+        <>
+          <section className="border-b border-black/10 bg-[#f6f3ee]">
+            <div className="mx-auto w-full max-w-7xl px-5 py-8 sm:px-8 lg:px-10">
+              <SectionIntro eyebrow="How it works" title="From repo evidence to launch report" />
+              <div className="mt-5 grid gap-4 lg:grid-cols-3">
+                <AudienceCard
+                  title="Collect evidence"
+                  text="Scans public repo files, dependencies, docs, deployment status, and security headers."
+                />
+                <AudienceCard
+                  title="Score readiness"
+                  text="Converts technical and product signals into production, security, demo, and market-readiness scores."
+                />
+                <AudienceCard
+                  title="Generate launch report"
+                  text="Produces audience-specific findings, launch plan, founder memo, and brief."
+                />
+              </div>
+            </div>
+          </section>
 
-      <section className="border-b border-black/10 bg-[#fbfaf7]">
-        <div className="mx-auto w-full max-w-7xl px-5 py-10 sm:px-8 lg:px-10">
-          <SectionIntro eyebrow="Report output" title="What the report includes" />
-          <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <SignalTile label="Scores" value="Production, security, demo, market" />
-            <SignalTile label="Risks" value="Evidence-backed launch blockers" />
-            <SignalTile label="Memo" value="Founder-ready diligence summary" />
-            <SignalTile label="Plan" value="Actions before users, mentors, launch" />
-          </div>
-        </div>
-      </section>
+          <section className="border-b border-black/10 bg-[#fbfaf7]">
+            <div className="mx-auto w-full max-w-7xl px-5 py-8 sm:px-8 lg:px-10">
+              <SectionIntro eyebrow="Report output" title="What the report includes" />
+              <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <SignalTile label="Scores" value="Production, security, demo, market" />
+                <SignalTile label="Risks" value="Evidence-backed launch blockers" />
+                <SignalTile label="Memo" value="Founder-ready diligence summary" />
+                <SignalTile label="Plan" value="Actions before users, mentors, launch" />
+              </div>
+            </div>
+          </section>
 
-      <section className="border-b border-black/10 bg-[#f6f3ee]">
-        <div className="mx-auto grid w-full max-w-7xl gap-5 px-5 py-10 sm:px-8 lg:grid-cols-[0.8fr_1.2fr] lg:px-10">
-          <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.12em] text-[#0f766e]">
-              Why not just ChatGPT?
-            </p>
-            <h2 className="mt-2 text-3xl font-semibold tracking-normal">Evidence first, synthesis second</h2>
-          </div>
-          <p className="text-base leading-7 text-[#5c564d]">
-            LaunchGuard is not a generic prompt. It first collects structured evidence from the public repo and live
-            deployment, then turns those deterministic signals into a diligence report for the audience you choose.
-          </p>
-        </div>
-      </section>
+          <section className="border-b border-black/10 bg-[#f6f3ee]">
+            <div className="mx-auto grid w-full max-w-7xl gap-5 px-5 py-8 sm:px-8 lg:grid-cols-[0.8fr_1.2fr] lg:px-10">
+              <div>
+                <p className="text-sm font-semibold uppercase tracking-[0.12em] text-[#0f766e]">
+                  Why not just ChatGPT?
+                </p>
+                <h2 className="mt-2 text-3xl font-semibold tracking-normal">Evidence first, synthesis second</h2>
+              </div>
+              <p className="text-base leading-7 text-[#5c564d]">
+                LaunchGuard is not a generic prompt. It first collects structured evidence from the public repo and
+                live deployment, then turns those deterministic signals into a diligence report for the audience you
+                choose.
+              </p>
+            </div>
+          </section>
 
-      <section className="border-b border-black/10 bg-[#f6f3ee]">
-        <div className="mx-auto w-full max-w-7xl px-5 py-10 sm:px-8 lg:px-10">
-          <SectionIntro eyebrow="Who uses this" title="Built for early launch reviews" />
-          <div className="mt-5 grid gap-5 lg:grid-cols-3">
-            <AudienceCard
-              title="Student founders"
-              text="Prepare a prototype for mentors, judges, users, or first investor conversations without missing obvious launch blockers."
-            />
-            <AudienceCard
-              title="Indie hackers"
-              text="Run a quick diligence pass before posting a side project, collecting emails, or sharing a live demo publicly."
-            />
-            <AudienceCard
-              title="Accelerators and clubs"
-              text="Review cohort projects with a consistent technical-readiness lens before demo days or showcase events."
-            />
-          </div>
-        </div>
-      </section>
+          <section className="border-b border-black/10 bg-[#f6f3ee]">
+            <div className="mx-auto w-full max-w-7xl px-5 py-8 sm:px-8 lg:px-10">
+              <SectionIntro eyebrow="Who uses this" title="Built for early launch reviews" />
+              <div className="mt-5 grid gap-4 lg:grid-cols-3">
+                <AudienceCard
+                  title="Student founders"
+                  text="Prepare a prototype for mentors, judges, users, or first investor conversations without missing obvious launch blockers."
+                />
+                <AudienceCard
+                  title="Indie hackers"
+                  text="Run a quick diligence pass before posting a side project, collecting emails, or sharing a live demo publicly."
+                />
+                <AudienceCard
+                  title="Accelerators and clubs"
+                  text="Review cohort projects with a consistent technical-readiness lens before demo days or showcase events."
+                />
+              </div>
+            </div>
+          </section>
 
-      <section className="border-b border-black/10 bg-[#fbfaf7]">
-        <div className="mx-auto grid w-full max-w-7xl gap-6 px-5 py-8 sm:px-8 lg:grid-cols-[0.85fr_1.15fr] lg:px-10">
-          <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.12em] text-[#0f766e]">Workflow</p>
-            <h2 className="mt-2 text-3xl font-semibold tracking-normal">Built for a real workflow</h2>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-3">
-            <SignalTile label="Free" value="Public launch audits for early builders" />
-            <SignalTile label="Pro" value="Deeper scans, exports, and saved diligence reports" />
-            <SignalTile label="Teams" value="Cohort readiness reviews for accelerators and clubs" />
-          </div>
-        </div>
-      </section>
+          <section className="border-b border-black/10 bg-[#fbfaf7]">
+            <div className="mx-auto grid w-full max-w-7xl gap-5 px-5 py-8 sm:px-8 lg:grid-cols-[0.85fr_1.15fr] lg:px-10">
+              <div>
+                <p className="text-sm font-semibold uppercase tracking-[0.12em] text-[#0f766e]">Workflow</p>
+                <h2 className="mt-2 text-3xl font-semibold tracking-normal">Built for a real workflow</h2>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-3">
+                <SignalTile label="Free" value="Public launch audits for early builders" />
+                <SignalTile label="Pro" value="Deeper scans, exports, and saved diligence reports" />
+                <SignalTile label="Teams" value="Cohort readiness reviews for accelerators and clubs" />
+              </div>
+            </div>
+          </section>
+        </>
+      ) : null}
 
       {report ? (
-        <section className="mx-auto w-full max-w-7xl px-5 py-10 sm:px-8 lg:px-10 lg:py-14">
+        <section ref={reportRef} className="mx-auto w-full max-w-7xl scroll-mt-6 px-5 py-8 sm:px-8 lg:px-10 lg:py-10">
           <div className="grid gap-5 lg:grid-cols-[0.95fr_1.05fr]">
-            <section className="rounded-2xl border border-black/10 bg-white p-6 shadow-sm">
+            <section className="rounded-2xl border border-black/10 bg-white p-5 shadow-sm sm:p-6">
               <div className="flex flex-wrap items-start justify-between gap-5">
                 <div>
                   <p className="text-sm font-semibold uppercase tracking-[0.12em] text-[#0f766e]">
@@ -577,9 +591,12 @@ export default function Home() {
                 <div className="flex flex-col items-start gap-2 sm:items-end">
                   <ScoreBadge score={report.overallScore} />
                   <AnalysisBadge mode={report.analysisMode} />
+                  <span className="rounded-full border border-black/10 bg-[#fbfaf7] px-3 py-1 text-sm font-bold text-[#5c564d]">
+                    {getAudienceLabel(report.reportAudience)} audience
+                  </span>
                 </div>
               </div>
-              <p className="mt-5 text-base leading-7 text-[#5c564d]">{report.summary}</p>
+              <p className="mt-5 text-base leading-7 text-[#5c564d]">{getLeadSentence(report.summary)}</p>
               <p className="mt-3 text-sm leading-6 text-[#6e665c]">{modeDescriptions[report.analysisMode]}</p>
               {report.analysisNote ? <p className="mt-2 text-sm leading-6 text-[#6e665c]">{report.analysisNote}</p> : null}
               <div className="mt-5 rounded-xl bg-[#fbfaf7] p-4">
@@ -703,7 +720,7 @@ function buildFounderBrief(report: ScanReport) {
 
   return [
     `LaunchGuard Founder Brief: ${report.checks.repo.owner}/${report.checks.repo.name}`,
-    `Audience: ${audienceOptions.find((option) => option.value === report.reportAudience)?.label ?? "Founder"}`,
+    `Audience: ${getAudienceLabel(report.reportAudience)}`,
     `Overall score: ${report.overallScore}/100`,
     `Production: ${report.productionScore}/100`,
     `Security: ${report.securityScore}/100`,
@@ -727,6 +744,20 @@ function buildFounderBrief(report: ScanReport) {
     "Launch simulation:",
     simulation,
   ].join("\n");
+}
+
+function getAudienceLabel(audience: ReportAudience) {
+  return audienceOptions.find((option) => option.value === audience)?.label ?? "Founder";
+}
+
+function getLeadSentence(text: string) {
+  const firstSentenceBreak = text.indexOf(". ");
+
+  if (firstSentenceBreak === -1) {
+    return text;
+  }
+
+  return text.slice(0, firstSentenceBreak + 1);
 }
 
 function buildCopyText(report: ScanReport, mode: "summary" | "findings" | "steps") {
