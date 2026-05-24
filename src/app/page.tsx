@@ -24,137 +24,178 @@ const sampleInputs = {
     "LaunchGuard AI helps student founders and indie hackers catch launch blockers before sharing web apps with users, investors, or demo audiences.",
 };
 
-const sampleReport: ScanReport = {
+const demoCaseStudyReport: ScanReport = {
   analysisMode: "rule-based",
-  analysisNote: "Sample report for demo reliability. No external request was made.",
+  analysisNote: "Demo case study data for live presentation. No external request was made.",
   reportAudience: "founder",
-  overallScore: 78,
-  productionScore: 76,
-  securityScore: 72,
-  demoClarityScore: 83,
-  businessFeasibilityScore: 82,
+  overallScore: 73,
+  productionScore: 68,
+  securityScore: 61,
+  demoClarityScore: 79,
+  businessFeasibilityScore: 76,
   summary:
-    "sample-founder/app scored 78/100 for launch readiness. The live demo responded with HTTP 200. Strongest area: demo clarity (83/100). Biggest risk from the targeted scan: Security headers were not fully detected. Recommended next fix: Add baseline browser protections such as CSP, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy, and HSTS where appropriate.",
+    "campus-builder/clubops scored 73/100 for launch readiness. The live demo responded with HTTP 200. Strongest area: demo clarity (79/100). Biggest risk from the targeted scan: API routes were detected, but an input validation library was not detected. Recommended next fix: Add validation around event, member, and sponsor outreach inputs before sharing with real campus clubs.",
   topFindings: [
     {
-      severity: "medium",
+      severity: "high",
       category: "security",
-      title: "Security headers were not fully detected",
-      evidence: "Not detected on the live response: content-security-policy, permissions-policy.",
+      title: "API routes were detected without a validation signal",
+      evidence: "Targeted scan detected app/api route indicators, but did not detect zod, yup, joi, or valibot in dependencies.",
       recommendation:
-        "Add baseline browser protections through your hosting platform or Next.js headers config before launch.",
+        "Add a validation layer around event, member, and sponsor outreach inputs before accepting real club data.",
     },
     {
-      severity: "medium",
+      severity: "high",
       category: "infrastructure",
       title: "Environment variable example file was not detected",
       evidence: ".env.example was not found in the targeted file set.",
       recommendation:
-        "Add an .env.example that documents required variables with placeholder values and no real credentials.",
+        "Add an .env.example with safe placeholder values for database, auth, and deployment variables so another developer can run the project.",
+    },
+    {
+      severity: "medium",
+      category: "security",
+      title: "Security headers were not fully detected",
+      evidence: "Not detected on the live response: content-security-policy, x-frame-options, permissions-policy.",
+      recommendation:
+        "Add baseline browser protections through the hosting platform or Next.js headers config before a public launch.",
+    },
+    {
+      severity: "medium",
+      category: "documentation",
+      title: "Setup documentation is not yet reviewer-ready",
+      evidence: "README.md was detected, but setup/run and environment variable instructions were not detected in the sample scan.",
+      recommendation:
+        "Add a short local setup section, required environment variables, and a demo account path for mentors or technical reviewers.",
+    },
+    {
+      severity: "medium",
+      category: "security",
+      title: "Auth or middleware was not detected in the targeted scan",
+      evidence: "No middleware.ts, src/middleware.ts, or common auth dependency was detected in the targeted file set.",
+      recommendation:
+        "If ClubOps stores member lists or sponsor contacts, document the intended access control model before onboarding real organizations.",
     },
     {
       severity: "low",
-      category: "documentation",
-      title: "README demo evidence could be stronger",
-      evidence: "README.md was detected, but screenshot/video language was not detected.",
+      category: "business",
+      title: "Market positioning is promising but still broad",
+      evidence: "The description names student organizations, events, members, and sponsor outreach, but does not yet specify the first buyer or strongest pain.",
       recommendation:
-        "Add a screenshot or short demo link so a first-time reviewer understands the product quickly.",
+        "Lead with one wedge, such as clubs preparing for a new quarter or sponsorship season, and explain why existing spreadsheets fail.",
     },
   ],
   nextSteps: [
-    "Add an .env.example that documents required variables with placeholder values.",
-    "Add missing security headers where appropriate for the deployed app.",
-    "Record the primary user workflow and keep the demo explanation focused on the launch blocker being solved.",
+    "Add validation to API routes that accept event, member, or sponsor outreach data.",
+    "Add an .env.example that documents required variables with safe placeholder values.",
+    "Write a 3-step README setup path plus a demo account or seed-data note for reviewers.",
+    "Configure missing security headers before inviting real clubs to test the app.",
+    "Clarify whether the first customer is club officers, campus org boards, or student government groups.",
+    "Record a 60-second workflow showing event creation, member tracking, and sponsor outreach in one connected flow.",
   ],
   positioningFeedback:
-    "The sample positioning has a clear audience and launch pain. To make it stronger, add why this matters now and what evidence makes the product trustworthy.",
+    "ClubOps has a credible early-stage wedge because campus clubs already juggle events, members, and sponsors across scattered tools. The positioning should get sharper about the first user: a club president preparing for a new quarter, a treasurer coordinating sponsors, or a campus program manager supporting many clubs. Lead with the operational pain and time saved, then show why the dashboard is more reliable than spreadsheets and group chats.",
   demoReadinessAdvice:
-    "For a screen recording, start on the first screen a real user would see, complete one primary workflow, then show the LaunchGuard report as the pre-launch checklist. Keep limitations honest and brief.",
+    "For a live demo, start with the student officer's problem: planning a quarter while membership and sponsor follow-up live in separate places. Show one clean workflow from event setup to member list to sponsor outreach, then use the LaunchGuard findings to explain what must be hardened before real clubs rely on it.",
   founderReadinessMemo: {
     productSummary:
-      "Based on the submitted description, this product helps early-stage builders identify launch blockers before sharing a prototype.",
-    likelyTargetUser: "Likely target user: student founders, indie hackers, and early startup teams preparing to demo.",
+      "ClubOps is a student-built SaaS dashboard for campus clubs to centralize event planning, member lists, and sponsor outreach before each quarter.",
+    likelyTargetUser:
+      "Likely target user: student club officers who manage events, members, and sponsorship outreach with lightweight tools.",
     coreUserPain:
-      "Likely core pain: working prototypes can still have technical, security, UX, or positioning gaps that hurt first impressions.",
+      "Likely core pain: club operations are spread across spreadsheets, forms, messages, and old docs, making handoff and sponsor follow-up difficult.",
     credibilitySignals:
-      "live demo responded with HTTP 200; package.json detected; lockfile detected; TypeScript signal detected; validation signal detected (zod)",
+      "live demo responded with HTTP 200; package.json detected; lockfile detected; TypeScript signal detected; Prisma schema detected; deployment config detected",
     mainTechnicalRisk:
-      "Security headers were not fully detected: Add baseline browser protections through hosting or Next.js config.",
+      "API routes were detected without a validation library signal, which is risky for member, event, and sponsor data collection.",
     mainMarketRisk:
-      "Market story is directionally clear, but it should explain why the target user cares enough to run an audit before launch.",
+      "The market story is plausible, but the first buyer/user and urgency need sharper proof before an investor or accelerator reviewer will see a clear wedge.",
     mentorInvestorQuestions: [
-      "Who feels this launch-readiness pain most urgently?",
-      "What does the user currently do before showing a prototype?",
-      "What evidence proves this catches issues they would otherwise miss?",
+      "Which club role feels this pain most urgently: president, treasurer, event chair, or campus program staff?",
+      "What does a club currently use instead, and where does that workflow break during the quarter?",
+      "Would clubs pay individually, or is the better buyer a campus department, accelerator, or student government group?",
+      "What data must be protected before real member lists or sponsor contacts are imported?",
     ],
   },
   launchPlan: {
     beforeSharingWithUsers: [
-      "Run the primary user workflow on the live URL in a fresh browser session.",
-      "Put the clearest user pain and outcome on the first screen.",
-      "Add a live demo link or screenshot so a first-time visitor understands the product quickly.",
+      "Add input validation for event, member, and sponsor outreach forms.",
+      "Create a realistic demo workspace with sample club data instead of asking reviewers to start from a blank state.",
+      "Clarify the first-screen promise around reducing club handoff and planning friction.",
     ],
     beforeShowingMentorsInvestors: [
-      "Prepare a concise answer for the main technical risk and main market risk.",
-      "Make sure the README explains the problem, setup, demo path, and known limitations.",
-      "Explain why this user segment cares now and what they do today instead.",
+      "Prepare a concise answer for who buys ClubOps and who uses it day to day.",
+      "Show the current workaround: spreadsheets, group chats, forms, and disconnected sponsor notes.",
+      "Explain which launch blockers are fixed now and which remain before campus-wide rollout.",
     ],
     beforeProductionLaunch: [
-      "Add an .env.example so another developer can run the project safely.",
-      "Document how user input is validated before accepting user-submitted data.",
-      "Add missing security headers before production launch.",
+      "Add an .env.example and README setup path so technical reviewers can run the project safely.",
+      "Configure missing security headers and document access-control assumptions.",
+      "Add a privacy note for member lists and sponsor contact data before onboarding real clubs.",
     ],
   },
   launchSimulation: [
     {
       audience: "Founder self-check",
       likelyReaction:
-        "The prototype is promising, but the next launch blocker is setup clarity and security-header polish.",
-      concern: "The sample scan did not detect an .env.example and found missing security headers.",
-      bestResponse: "Add a safe env template, document setup, and configure baseline headers before sharing widely.",
+        "The prototype has a clear workflow, but the next launch blocker is trust around setup, validation, and real club data.",
+      concern: "The demo case study did not detect an .env.example or input validation library for detected API routes.",
+      bestResponse:
+        "Add safe env documentation, validate submitted data, and demo with realistic sample club records before inviting users.",
     },
     {
       audience: "Investor / mentor reaction",
       likelyReaction:
-        "The product direction is understandable, but the user urgency and credibility proof should be sharper.",
-      concern: "The positioning explains launch readiness, but should show who feels this pain first.",
-      bestResponse: "Lead with the specific early-stage builder pain and show how the report turns it into next actions.",
+        "The product direction is understandable, but the buyer and urgency need sharper proof.",
+      concern: "The description names campus clubs broadly but does not identify whether the first wedge is officers, sponsors, or campus programs.",
+      bestResponse:
+        "Lead with one painful quarterly workflow and bring 2-3 user quotes or examples showing why current tools fail.",
     },
     {
       audience: "Technical reviewer reaction",
       likelyReaction:
-        "The app has a working deployment, but production readiness depends on setup, validation, and security hardening.",
-      concern: "Based on the targeted scan, missing headers and env documentation are the clearest technical risks.",
-      bestResponse: "Fix the high-confidence findings and document what the targeted scan did not cover.",
+        "The app has a working deployment and database signal, but production readiness depends on validation, access control, and headers.",
+      concern: "API routes were detected, but validation and auth/middleware signals were not detected in the targeted scan.",
+      bestResponse:
+        "Add validation, document the access-control plan, and configure baseline security headers before handling real member data.",
     },
     {
       audience: "Accelerator/program reviewer reaction",
       likelyReaction:
-        "This is useful for coaching teams if the report becomes a repeatable readiness workflow.",
-      concern: "The current workflow is a single audit, so cohort-scale review needs a clearer roadmap.",
-      bestResponse: "Use the Founder Brief and Launch Plan as the review artifact, then frame saved reports and cohort dashboards as next steps.",
+        "This could be useful for many student organizations, but the team needs a repeatable onboarding motion.",
+      concern: "The case study shows a one-app workflow, while campus-wide adoption would require templates, permissions, and handoff support.",
+      bestResponse:
+        "Frame the roadmap around club templates, officer handoff, and cohort or campus-wide readiness reviews.",
     },
   ],
   checks: {
     repo: {
-      owner: "sample-founder",
-      name: "app",
+      owner: "campus-builder",
+      name: "clubops",
       defaultBranch: "main",
       repoApiReachable: true,
       files: {},
-      detectedFiles: ["README.md", "package.json", "pnpm-lock.yaml", "next.config.ts"],
-      missingFiles: [".env.example", "middleware.ts"],
+      detectedFiles: ["README.md", "package.json", "pnpm-lock.yaml", "next.config.ts", "prisma/schema.prisma"],
+      missingFiles: [".env.example", "middleware.ts", "src/middleware.ts"],
       apiRouteIndicators: { appApi: true, srcAppApi: false, pagesApi: false },
-      dependencies: { next: true, react: true, typescript: true, zod: true, tailwindcss: true },
+      dependencies: {
+        next: true,
+        react: true,
+        typescript: true,
+        prisma: true,
+        "@prisma/client": true,
+        tailwindcss: true,
+        "lucide-react": true,
+      },
     },
     liveUrl: {
-      url: "https://sample-launchguard-demo.vercel.app",
+      url: "https://clubops-demo.vercel.app",
       ok: true,
       status: 200,
-      finalUrl: "https://sample-launchguard-demo.vercel.app",
+      finalUrl: "https://clubops-demo.vercel.app",
       securityHeaders: {
         "content-security-policy": false,
-        "x-frame-options": true,
+        "x-frame-options": false,
         "x-content-type-options": true,
         "referrer-policy": true,
         "permissions-policy": false,
@@ -169,16 +210,16 @@ const sampleReport: ScanReport = {
       lockfileExists: true,
       authOrMiddlewareDetected: false,
       apiRoutesDetected: true,
-      validationLibraryDetected: true,
-      validationLibraries: ["zod"],
-      databaseDetected: false,
-      databaseSignals: [],
+      validationLibraryDetected: false,
+      validationLibraries: [],
+      databaseDetected: true,
+      databaseSignals: ["prisma/schema.prisma", "prisma", "@prisma/client"],
       possibleSecretPatterns: [],
       productDescriptionClear: true,
       deploymentConfigDetected: true,
       typescriptDetected: true,
       readmeQuality: {
-        hasSetupInstructions: true,
+        hasSetupInstructions: false,
         hasEnvInstructions: false,
         hasDemoLink: true,
         hasProjectPurpose: true,
@@ -186,7 +227,7 @@ const sampleReport: ScanReport = {
         hasLimitations: true,
       },
       descriptionQuality: {
-        wordCount: 18,
+        wordCount: 14,
         tooShort: false,
         hasTargetUser: true,
         hasProblem: true,
@@ -293,8 +334,8 @@ export default function Home() {
     setDescription(sampleInputs.description);
   }
 
-  function loadSampleReport() {
-    setReport(sampleReport);
+  function loadDemoCaseStudy() {
+    setReport(demoCaseStudyReport);
     setError("");
     setCopiedLabel("");
   }
@@ -356,14 +397,14 @@ export default function Home() {
                   </a>
                   <button
                     type="button"
-                    onClick={loadSampleReport}
+                    onClick={loadDemoCaseStudy}
                     className="inline-flex h-12 items-center rounded-lg border border-black/15 bg-white px-5 text-sm font-semibold text-[#161513] shadow-sm transition hover:border-black/30"
                   >
-                    Load sample report
+                    Load demo case study
                   </button>
                 </div>
                 <p className="max-w-md text-sm leading-6 text-[#6e665c]">
-                  Use the sample report if Wi-Fi, GitHub, or the live deployment check is slow during a demo.
+                  Use this during a live demo if Wi-Fi or GitHub checks are slow.
                 </p>
               </div>
             </div>
