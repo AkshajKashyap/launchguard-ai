@@ -655,23 +655,27 @@ export default function Home() {
             </section>
           </div>
 
-          <div className="mt-5 grid items-start gap-5 lg:grid-cols-[1.15fr_0.85fr]">
-            <section className="self-start rounded-2xl border border-black/10 bg-white p-6 shadow-sm">
-              <div className="flex items-center justify-between gap-4">
-                <h2 className="text-2xl font-semibold tracking-normal">Top findings</h2>
-                <span className="rounded-full bg-[#f6f3ee] px-3 py-1 text-sm font-medium text-[#6e665c]">
-                  {report.topFindings.length} generated
-                </span>
-              </div>
-              <div className="mt-5 space-y-4">
-                {report.topFindings.map((finding) => (
-                  <FindingCard key={`${finding.category}-${finding.title}`} finding={finding} />
-                ))}
-              </div>
-            </section>
+          <div className="mt-5 grid gap-5 lg:grid-cols-2 lg:items-start">
+            <div className="space-y-5">
+              <section className="rounded-2xl border border-black/10 bg-white p-6 shadow-sm">
+                <div className="flex items-center justify-between gap-4">
+                  <h2 className="text-2xl font-semibold tracking-normal">Top findings</h2>
+                  <span className="rounded-full bg-[#f6f3ee] px-3 py-1 text-sm font-medium text-[#6e665c]">
+                    {report.topFindings.length} generated
+                  </span>
+                </div>
+                <div className="mt-5 space-y-4">
+                  {report.topFindings.map((finding) => (
+                    <FindingCard key={`${finding.category}-${finding.title}`} finding={finding} />
+                  ))}
+                </div>
+              </section>
+              <FounderMemo memo={report.founderReadinessMemo} />
+              <LaunchPlan plan={report.launchPlan} />
+              <AdviceCard title="Positioning feedback" text={report.positioningFeedback} />
+            </div>
 
             <div className="space-y-5">
-              <FounderMemo memo={report.founderReadinessMemo} />
               <LaunchSimulation simulation={report.launchSimulation} />
               <section className="rounded-2xl border border-black/10 bg-white p-6 shadow-sm">
                 <h2 className="text-2xl font-semibold tracking-normal">Next steps</h2>
@@ -684,13 +688,9 @@ export default function Home() {
                   ))}
                 </div>
               </section>
-
-              <AdviceCard title="Positioning feedback" text={report.positioningFeedback} />
               <AdviceCard title="Demo readiness advice" text={report.demoReadinessAdvice} />
             </div>
           </div>
-
-          <LaunchPlan plan={report.launchPlan} />
         </section>
       ) : null}
       <footer className="border-t border-black/10 bg-[#161513] px-5 py-8 text-white sm:px-8 lg:px-10">
@@ -907,7 +907,7 @@ function FounderMemo({ memo }: { memo: ScanReport["founderReadinessMemo"] }) {
 
 function LaunchPlan({ plan }: { plan: ScanReport["launchPlan"] }) {
   return (
-    <section className="mt-5 rounded-2xl border border-black/10 bg-white p-6 shadow-sm">
+    <section className="rounded-2xl border border-black/10 bg-white p-6 shadow-sm">
       <h2 className="text-2xl font-semibold tracking-normal">Launch Plan</h2>
       <div className="mt-5 grid gap-4 lg:grid-cols-3">
         <PlanGroup title="Before sharing with users" items={plan.beforeSharingWithUsers} />
