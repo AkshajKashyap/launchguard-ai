@@ -10,9 +10,9 @@ Early-stage builders often have working prototypes that still are not launch-rea
 
 ## What It Does
 
-LaunchGuard asks for a public GitHub repo URL, live demo URL, product description, and report audience. It checks repo structure, docs, deployment health, security headers, possible secret-like patterns, validation/database/auth indicators, demo clarity, and positioning. It then produces a launch-readiness report with scores, findings, evidence, recommendations, next steps, a Founder Readiness Memo, and a Launch Plan.
+LaunchGuard asks for a public GitHub repo URL, live demo URL, product description, and report audience. It checks repo structure, docs, deployment health, security headers, possible secret-like patterns, validation/database/auth indicators, demo clarity, and positioning. It then produces a launch-readiness report with scores, findings, evidence, recommendations, next steps, a Founder Readiness Memo, a Launch Simulation, and a Launch Plan.
 
-The report can be tailored for founders, investors/mentors, technical reviewers, or accelerator programs. The underlying evidence and scores stay the same; the wording and prioritization adapt to the audience.
+The report can be tailored for founders, investors/mentors, technical reviewers, or accelerator programs. The Launch Simulation shows what each audience would likely notice if the app were shown today. The underlying evidence and scores stay the same; the wording and prioritization adapt to the audience.
 
 ## Customer / User Segment
 
@@ -28,7 +28,7 @@ LaunchGuard does not ask an LLM to hallucinate a startup report from a prompt. T
 
 ## How We Built It
 
-We built LaunchGuard AI with Next.js App Router, TypeScript, Tailwind CSS, and React. The scanner runs in a Next.js route handler at `POST /api/scan`. It uses public raw GitHub file fetches, best-effort GitHub contents checks, live URL metadata, rule-based scoring, deterministic report templates, report audience modes, and a Launch Plan generator. We also added a safe optional server-only Gemini synthesis hook: if `GEMINI_API_KEY` exists, it can synthesize and prioritize deterministic findings for the chosen audience; if it is missing or fails, the rule-based report still works.
+We built LaunchGuard AI with Next.js App Router, TypeScript, Tailwind CSS, and React. The scanner runs in a Next.js route handler at `POST /api/scan`. It uses public raw GitHub file fetches, best-effort GitHub contents checks, live URL metadata, rule-based scoring, deterministic report templates, report audience modes, a Launch Simulation generator, and a Launch Plan generator. We also added a safe optional server-only Gemini synthesis hook: if `GEMINI_API_KEY` exists, it can synthesize and prioritize deterministic findings for the chosen audience; if it is missing or fails, the rule-based report still works.
 
 ## Challenges
 
@@ -46,6 +46,7 @@ We built LaunchGuard AI with Next.js App Router, TypeScript, Tailwind CSS, and R
 - Added report audience modes.
 - Added rule-based scoring for production readiness, security, demo clarity, and market readiness.
 - Added a Founder Readiness Memo that connects technical findings to founder-facing questions.
+- Added a Launch Simulation that previews likely audience reactions.
 - Added a Launch Plan with actions before users, mentors/investors, and production launch.
 - Added a copyable Founder Brief for mentors, Devpost, and demo prep.
 - Created safe fallback modes so the app works without paid APIs or API keys.
@@ -67,4 +68,4 @@ Production readiness is multi-dimensional. A project can have strong code but we
 
 ## Built During The Hackathon
 
-During the hackathon we built the working Next.js app, scan form, deterministic scanner, scoring logic, report dashboard, report audience modes, Founder Readiness Memo, Launch Plan, Founder Brief copy flow, optional AI-assisted architecture, sample report fallback, README, and Devpost draft. The current version intentionally works without required paid APIs or API keys.
+During the hackathon we built the working Next.js app, scan form, deterministic scanner, scoring logic, report dashboard, report audience modes, Founder Readiness Memo, Launch Simulation, Launch Plan, Founder Brief copy flow, optional AI-assisted architecture, sample report fallback, README, and Devpost draft. The current version intentionally works without required paid APIs or API keys.

@@ -238,14 +238,17 @@ async function buildRuleBasedReport(
 
   const scores = calculateScores(checks);
   const topFindings = buildFindings(checks, description);
+  const founderReadinessMemo = buildFounderReadinessMemo(checks, topFindings, description, reportAudience);
+  const launchPlan = buildLaunchPlan(checks, topFindings);
 
   return {
     analysisMode: "rule-based",
     analysisNote: "Generated with deterministic checks. Optional AI synthesis can be enabled later with GEMINI_API_KEY.",
     reportAudience,
     ...scores,
-    founderReadinessMemo: buildFounderReadinessMemo(checks, topFindings, description, reportAudience),
-    launchPlan: buildLaunchPlan(checks, topFindings),
+    founderReadinessMemo,
+    launchPlan,
+    launchSimulation: buildLaunchSimulation(checks, topFindings, founderReadinessMemo, launchPlan),
     summary: buildSummary(checks, scores, topFindings, reportAudience),
     topFindings,
     nextSteps: buildNextSteps(checks, topFindings, reportAudience),
@@ -943,6 +946,77 @@ function buildLaunchPlan(checks: ScanChecks, findings: TopFinding[]): ScanReport
   };
 }
 
+function buildLaunchSimulation(
+  checks: ScanChecks,
+  findings: TopFinding[],
+  memo: ScanReport["founderReadinessMemo"],
+  plan: ScanReport["launchPlan"],
+): ScanReport["launchSimulation"] {
+  const technicalFinding =
+    findings.find((finding) => ["security", "infrastructure", "deployment", "database"].includes(finding.category)) ??
+    findings[0];
+  const marketFinding = findings.find((finding) => finding.category === "business");
+  const docsFinding = findings.find((finding) => finding.category === "documentation");
+  const topFinding = findings[0];
+  const technicalConcern = technicalFinding
+    ? `${technicalFinding.title}. ${technicalFinding.evidence}`
+    : "No major technical blocker was generated, but this was a targeted scan rather than a full code audit.";
+  const marketConcern = marketFinding
+    ? `${marketFinding.title}. ${marketFinding.evidence}`
+    : checks.signals.productDescriptionClear
+      ? "The description is directionally clear, but the founder still needs evidence that the target user cares now."
+      : "The submitted description does not fully clarify target user, pain, and value proposition.";
+  const setupConcern = docsFinding
+    ? `${docsFinding.title}. ${docsFinding.evidence}`
+    : checks.signals.envExampleExists
+      ? "Setup documentation has some positive signals, but handoff should still be tested with a fresh developer."
+      : "The targeted scan did not detect an .env.example, which can make safe handoff harder.";
+
+  return [
+    {
+      audience: "Founder self-check",
+      likelyReaction:
+        topFinding && topFinding.severity !== "low"
+          ? `The prototype is promising, but the next launch blocker is ${topFinding.title.toLowerCase()}.`
+          : "The prototype is close enough to demo, but the founder should still tighten handoff and launch clarity.",
+      concern: setupConcern,
+      bestResponse:
+        plan.beforeSharingWithUsers[0] ??
+        "Turn the top finding into a small fix before sharing the repo or live demo.",
+    },
+    {
+      audience: "Investor / mentor reaction",
+      likelyReaction:
+        checks.signals.productDescriptionClear
+          ? "The product direction is understandable, but the proof of urgency and credibility needs to be explicit."
+          : "The product may be useful, but the target customer and pain need sharper proof.",
+      concern: marketConcern,
+      bestResponse:
+        plan.beforeShowingMentorsInvestors[0] ??
+        "Lead with the specific user pain, current workaround, and the most credible demo evidence.",
+    },
+    {
+      audience: "Technical reviewer reaction",
+      likelyReaction:
+        checks.liveUrl.ok
+          ? "The app has a working deployment, but production readiness depends on validation, setup, and security hardening."
+          : "The repo can be inspected, but the public deployment needs to be reachable before a serious technical review.",
+      concern: technicalConcern,
+      bestResponse:
+        plan.beforeProductionLaunch[0] ??
+        "Fix the top technical finding and document what this targeted scan did not cover.",
+    },
+    {
+      audience: "Accelerator/program reviewer reaction",
+      likelyReaction:
+        "This could be useful in a review workflow if the founder can turn the diligence output into repeatable launch actions.",
+      concern: `Based on the targeted scan, the main diligence risk is: ${memo.mainTechnicalRisk}`,
+      bestResponse:
+        "Use the Founder Brief and Launch Plan as the repeatable review artifact, then frame the roadmap around saved reports, cohort dashboards, and mentor workflows.",
+    },
+  ];
+}
+
 function inferTargetUser(description: string): string {
   const directFor = description.match(/\bfor\s+([^.,;]+)/i)?.[1]?.trim();
   const directHelps = description.match(/\bhelps\s+([^.,;]+?)\s+(?:who|to|catch|find|build|launch|with)\b/i)?.[1]?.trim();
@@ -1114,7 +1188,7 @@ async function maybeSynthesizeWithGemini(
                 {
                   text: JSON.stringify({
                     task:
-                      "Rewrite only summary, topFindings, nextSteps, positioningFeedback, demoReadinessAdvice, founderReadinessMemo, and launchPlan. Tailor wording to reportAudience without changing evidence or scores. Keep recommendations practical. Preserve severity/category/evidence discipline. Return JSON with exactly those seven keys.",
+                      "Rewrite only summary, topFindings, nextSteps, positioningFeedback, demoReadinessAdvice, founderReadinessMemo, launchPlan, and launchSimulation. Tailor wording to reportAudience without changing evidence or scores. Keep recommendations practical. Preserve severity/category/evidence discipline. Return JSON with exactly those eight keys.",
                     reportAudience,
                     submittedDescription: description,
                     deterministicReport: report,
@@ -1154,6 +1228,7 @@ async function maybeSynthesizeWithGemini(
         report.founderReadinessMemo,
       ),
       launchPlan: sanitizeLaunchPlan(parsed.launchPlan, report.launchPlan),
+      launchSimulation: sanitizeLaunchSimulation(parsed.launchSimulation, report.launchSimulation),
       positioningFeedback:
         typeof parsed.positioningFeedback === "string" ? parsed.positioningFeedback : report.positioningFeedback,
       demoReadinessAdvice:
@@ -1169,6 +1244,39 @@ async function maybeSynthesizeWithGemini(
           : "Gemini synthesis was attempted but failed. Showing the deterministic report.",
     };
   }
+}
+
+function sanitizeLaunchSimulation(
+  candidate: unknown,
+  fallback: ScanReport["launchSimulation"],
+): ScanReport["launchSimulation"] {
+  if (!Array.isArray(candidate)) {
+    return fallback;
+  }
+
+  const allowedAudiences = new Set<string>(fallback.map((item) => item.audience));
+  const values = candidate
+    .map((item) => {
+      if (!item || typeof item !== "object") {
+        return null;
+      }
+
+      const value = item as Partial<ScanReport["launchSimulation"][number]>;
+
+      if (
+        !allowedAudiences.has(String(value.audience)) ||
+        typeof value.likelyReaction !== "string" ||
+        typeof value.concern !== "string" ||
+        typeof value.bestResponse !== "string"
+      ) {
+        return null;
+      }
+
+      return value as ScanReport["launchSimulation"][number];
+    })
+    .filter((item): item is ScanReport["launchSimulation"][number] => Boolean(item));
+
+  return values.length === fallback.length ? values : fallback;
 }
 
 function sanitizeLaunchPlan(candidate: unknown, fallback: ScanReport["launchPlan"]): ScanReport["launchPlan"] {

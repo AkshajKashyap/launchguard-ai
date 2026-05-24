@@ -105,6 +105,36 @@ const sampleReport: ScanReport = {
       "Add missing security headers before production launch.",
     ],
   },
+  launchSimulation: [
+    {
+      audience: "Founder self-check",
+      likelyReaction:
+        "The prototype is promising, but the next launch blocker is setup clarity and security-header polish.",
+      concern: "The sample scan did not detect an .env.example and found missing security headers.",
+      bestResponse: "Add a safe env template, document setup, and configure baseline headers before sharing widely.",
+    },
+    {
+      audience: "Investor / mentor reaction",
+      likelyReaction:
+        "The product direction is understandable, but the user urgency and credibility proof should be sharper.",
+      concern: "The positioning explains launch readiness, but should show who feels this pain first.",
+      bestResponse: "Lead with the specific early-stage builder pain and show how the report turns it into next actions.",
+    },
+    {
+      audience: "Technical reviewer reaction",
+      likelyReaction:
+        "The app has a working deployment, but production readiness depends on setup, validation, and security hardening.",
+      concern: "Based on the targeted scan, missing headers and env documentation are the clearest technical risks.",
+      bestResponse: "Fix the high-confidence findings and document what the targeted scan did not cover.",
+    },
+    {
+      audience: "Accelerator/program reviewer reaction",
+      likelyReaction:
+        "This is useful for coaching teams if the report becomes a repeatable readiness workflow.",
+      concern: "The current workflow is a single audit, so cohort-scale review needs a clearer roadmap.",
+      bestResponse: "Use the Founder Brief and Launch Plan as the review artifact, then frame saved reports and cohort dashboards as next steps.",
+    },
+  ],
   checks: {
     repo: {
       owner: "sample-founder",
@@ -625,6 +655,7 @@ export default function Home() {
 
             <div className="space-y-5">
               <FounderMemo memo={report.founderReadinessMemo} />
+              <LaunchSimulation simulation={report.launchSimulation} />
               <section className="rounded-2xl border border-black/10 bg-white p-6 shadow-sm">
                 <h2 className="text-2xl font-semibold tracking-normal">Next steps</h2>
                 <div className="mt-5 space-y-3">
@@ -666,6 +697,9 @@ function buildFounderBrief(report: ScanReport) {
     .map((step) => `- ${step}`)
     .join("\n");
   const questions = memo.mentorInvestorQuestions.map((question) => `- ${question}`).join("\n");
+  const simulation = report.launchSimulation
+    .map((item) => `- ${item.audience}: ${item.likelyReaction} Concern: ${item.concern}`)
+    .join("\n");
 
   return [
     `LaunchGuard Founder Brief: ${report.checks.repo.owner}/${report.checks.repo.name}`,
@@ -689,6 +723,9 @@ function buildFounderBrief(report: ScanReport) {
     "",
     "Mentor / investor questions:",
     questions,
+    "",
+    "Launch simulation:",
+    simulation,
   ].join("\n");
 }
 
@@ -845,6 +882,36 @@ function LaunchPlan({ plan }: { plan: ScanReport["launchPlan"] }) {
         <PlanGroup title="Before sharing with users" items={plan.beforeSharingWithUsers} />
         <PlanGroup title="Before showing mentors/investors" items={plan.beforeShowingMentorsInvestors} />
         <PlanGroup title="Before production launch" items={plan.beforeProductionLaunch} />
+      </div>
+    </section>
+  );
+}
+
+function LaunchSimulation({ simulation }: { simulation: ScanReport["launchSimulation"] }) {
+  return (
+    <section className="rounded-2xl border border-black/10 bg-white p-6 shadow-sm">
+      <h2 className="text-2xl font-semibold tracking-normal">Launch Simulation</h2>
+      <p className="mt-3 text-sm leading-6 text-[#6e665c]">
+        What different audiences would likely notice if this app were shown today, based on the targeted scan.
+      </p>
+      <div className="mt-5 space-y-4">
+        {simulation.map((item) => (
+          <article key={item.audience} className="rounded-xl bg-[#fbfaf7] p-4">
+            <h3 className="text-sm font-semibold text-[#3d3933]">{item.audience}</h3>
+            <p className="mt-3 text-sm leading-6 text-[#4f493f]">
+              <span className="font-semibold">Likely reaction: </span>
+              {item.likelyReaction}
+            </p>
+            <p className="mt-2 text-sm leading-6 text-[#5c564d]">
+              <span className="font-semibold">Concern: </span>
+              {item.concern}
+            </p>
+            <p className="mt-2 text-sm leading-6 text-[#5c564d]">
+              <span className="font-semibold">Best response: </span>
+              {item.bestResponse}
+            </p>
+          </article>
+        ))}
       </div>
     </section>
   );

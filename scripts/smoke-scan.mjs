@@ -29,12 +29,14 @@ async function main() {
     Array.isArray(report.topFindings) &&
     Array.isArray(report.nextSteps) &&
     Boolean(report.founderReadinessMemo) &&
-    Boolean(report.launchPlan);
+    Boolean(report.launchPlan) &&
+    Array.isArray(report.launchSimulation);
 
   console.log(`overallScore: ${report.overallScore}`);
   console.log(`topFindings: ${report.topFindings?.length ?? 0}`);
   console.log(`nextSteps: ${report.nextSteps?.length ?? 0}`);
   console.log(`launchPlan: ${report.launchPlan ? "present" : "missing"}`);
+  console.log(`launchSimulation: ${report.launchSimulation?.length ?? 0}`);
   console.log(hasShape ? "Smoke scan shape looks good." : "Smoke scan returned an unexpected shape.");
 
   process.exit(hasShape ? 0 : 1);

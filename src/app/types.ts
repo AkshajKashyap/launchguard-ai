@@ -126,6 +126,12 @@ export type ScanReport = {
     beforeShowingMentorsInvestors: string[];
     beforeProductionLaunch: string[];
   };
+  launchSimulation: Array<{
+    audience: "Founder self-check" | "Investor / mentor reaction" | "Technical reviewer reaction" | "Accelerator/program reviewer reaction";
+    likelyReaction: string;
+    concern: string;
+    bestResponse: string;
+  }>;
   summary: string;
   topFindings: TopFinding[];
   nextSteps: string[];

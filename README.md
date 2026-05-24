@@ -45,6 +45,7 @@ The same deterministic evidence can be shaped for different readers:
 - Rule-based scoring for production, security, demo clarity, and market readiness
 - Founder Readiness Memo with target user, user pain, credibility signals, main technical risk, main market risk, and mentor/investor questions
 - Launch Plan grouped by what to fix before users, mentors/investors, and production launch
+- Launch Simulation showing likely audience reactions from founders, mentors, technical reviewers, and program reviewers
 - Copyable Founder Brief for Devpost, mentor review, and demo prep
 - Optional server-only Gemini synthesis hook when `GEMINI_API_KEY` is available
 - Rule-based demo mode that works with no API key
@@ -73,7 +74,7 @@ LaunchGuard can start with free public repo audits for early builders. A paid ve
 2. `POST /api/scan` normalizes and validates the inputs.
 3. The API fetches targeted public repo files from raw GitHub URLs and best-effort GitHub contents endpoints.
 4. The API checks the live URL and selected security headers.
-5. Deterministic rules generate scores, findings, summary text, market-readiness feedback, demo advice, Founder Readiness Memo, and Launch Plan.
+5. Deterministic rules generate scores, findings, summary text, market-readiness feedback, demo advice, Founder Readiness Memo, Launch Plan, and Launch Simulation.
 6. If `GEMINI_API_KEY` exists, the server may ask Gemini to synthesize and prioritize the deterministic findings for the selected audience. Gemini must not invent facts.
 7. If Gemini is missing, fails, or returns invalid JSON, LaunchGuard returns the rule-based report.
 
@@ -124,6 +125,7 @@ If you later set a server-side `GEMINI_API_KEY`, LaunchGuard can attempt optiona
 - Evidence-based generated report text
 - Founder Readiness Memo
 - Launch Plan
+- Launch Simulation
 - Copyable Founder Brief
 - Optional server-only AI synthesis architecture
 - Demo-friendly sample report path
@@ -157,6 +159,6 @@ If you later set a server-side `GEMINI_API_KEY`, LaunchGuard can attempt optiona
 3. Enter a short product description.
 4. Choose the report audience.
 5. Click **Run launch audit**.
-6. Review the overall score, score breakdown, findings, Founder Readiness Memo, Launch Plan, next steps, positioning feedback, and demo readiness advice.
+6. Review the overall score, score breakdown, findings, Founder Readiness Memo, Launch Simulation, Launch Plan, next steps, positioning feedback, and demo readiness advice.
 7. Use **Copy Founder Brief** for Devpost, mentors, or demo prep.
 8. Use **Load sample report** if Wi-Fi, GitHub, or a live deployment is unreliable during a live presentation.
